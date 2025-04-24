@@ -79,33 +79,53 @@ const MetricsChart: React.FC<MetricsChartProps> = ({
 
   // When tab is changed, update parent state and localStorage
   const handleTabChange = React.useCallback((tab: string) => {
-    // Only change tab if it's not a valve or environmental sensor
     if (selectedSensor) {
       const type = getSensorType(selectedSensor);
-      if (type !== 'valve' && type !== 'environmental') {
-        setActiveMetricTab(tab);
-        localStorage.setItem('activeMetricTab', tab);
+      
+      // Skip changes for valve and environmental sensors
+      if (type === 'valve' || type === 'environmental') {
+        return; // These sensors only support the primary tab
       }
-    } else {
-      setActiveMetricTab(tab);
-      localStorage.setItem('activeMetricTab', tab);
     }
+    
+    // For all other cases, update in this order:
+    console.log('Tab changed to:', tab);
+    
+    // 1. Update the local ref
+    lastValidTabRef.current = tab;
+    
+    // 2. Update localStorage
+    localStorage.setItem('activeMetricTab', tab);
+    
+    // 3. Update parent state
+    setActiveMetricTab(tab);
   }, [setActiveMetricTab, selectedSensor, getSensorType]);
   
-  // Force primary tab for valve and environmental sensors since they don't have secondary metrics
+  // Keep track of the last valid tab state to prevent unwanted resets
+  const lastValidTabRef = React.useRef(activeMetricTab);
+  
+  // Combined effect to handle tab state on mount and sensor type changes
   React.useEffect(() => {
+    // Update the ref with the current active tab
+    lastValidTabRef.current = activeMetricTab;
+    
     if (selectedSensor) {
       const type = getSensorType(selectedSensor);
-      if ((type === 'valve' || type === 'environmental') && activeMetricTab !== 'primary') {
-        handleTabChange('primary');
-      } else if (activeMetricTab) {
-        // For other sensor types, save the active tab to localStorage
+      
+      // For valve and environmental sensors, always use primary
+      if ((type === 'valve' || type === 'environmental')) {
+        if (activeMetricTab !== 'primary') {
+          console.log('Forcing primary tab for valve/environmental sensor');
+          handleTabChange('primary');
+        }
+      } else {
+        // For other sensor types, update localStorage with current tab
         localStorage.setItem('activeMetricTab', activeMetricTab);
       }
     }
   }, [selectedSensor, activeMetricTab, getSensorType, handleTabChange]);
-
-  // Determine which tab should be active based on sensor type
+  
+  // Determine which tab should be active based on sensor type and last valid tab
   const getEffectiveTab = React.useCallback(() => {
     if (selectedSensor) {
       const type = getSensorType(selectedSensor);
@@ -114,7 +134,8 @@ const MetricsChart: React.FC<MetricsChartProps> = ({
         return 'primary';
       }
     }
-    return activeMetricTab;
+    // Use the lastValidTabRef for non-special sensor types
+    return lastValidTabRef.current || activeMetricTab;
   }, [selectedSensor, activeMetricTab, getSensorType]);
   
   // Prepare chart data for the selected sensor

@@ -1,4 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import 'leaflet/dist/leaflet.css';
+import { SENSOR_IDS, PANAMA_CITY_SENSORS, PANAMA_CITY_CENTER, NETWORK_CONNECTIONS } from '../utils/dummyData';
 
 // Enhanced Reading type with all possible metrics
 type Reading = {
@@ -72,6 +74,185 @@ const SensorMap: React.FC<SensorMapProps> = ({
   onSensorSelect 
 }) => {
   const [mapMode, setMapMode] = useState<string>('all');
+  const mapRef = useRef<HTMLDivElement>(null);
+  const leafletMap = useRef<any>(null);
+  const markersLayer = useRef<any>(null);
+  
+  // Generate network connections dynamically
+  const generateNetworkConnections = () => {
+    // Start with base connections from dummyData.js
+    const baseConnections = [...NETWORK_CONNECTIONS];
+    
+    // Add connections for additional dynamic sensors
+    const waterQualitySensors = PANAMA_CITY_SENSORS.filter(s => s.type === 'water-quality');
+    const pumpSensors = PANAMA_CITY_SENSORS.filter(s => s.type === 'pump');
+    const tankSensors = PANAMA_CITY_SENSORS.filter(s => s.type === 'tank');
+    const valveSensors = PANAMA_CITY_SENSORS.filter(s => s.type === 'valve');
+    
+    // Add connections in a more organic way - each water quality sensor should connect to the nearest pump or valve
+    waterQualitySensors.forEach(wq => {
+      if (!baseConnections.some(conn => conn.from === wq.id || conn.to === wq.id)) {
+        // Find closest pump or valve
+        let closestSensor = null;
+        let minDistance = Infinity;
+        
+        const potentialTargets = [...pumpSensors, ...valveSensors];
+        potentialTargets.forEach(target => {
+          const distance = Math.sqrt(
+            Math.pow(wq.lat - target.lat, 2) + 
+            Math.pow(wq.lng - target.lng, 2)
+          );
+          
+          if (distance < minDistance && distance < 0.02) { // Only connect if within ~2km
+            minDistance = distance;
+            closestSensor = target;
+          }
+        });
+        
+        if (closestSensor) {
+          baseConnections.push({ from: wq.id, to: closestSensor.id });
+        }
+      }
+    });
+    
+    // Connect pumps to nearest tanks if not already connected
+    pumpSensors.forEach(pump => {
+      if (!baseConnections.some(conn => conn.from === pump.id && tankSensors.some(t => t.id === conn.to))) {
+        // Find closest tank
+        let closestTank = null;
+        let minDistance = Infinity;
+        
+        tankSensors.forEach(tank => {
+          const distance = Math.sqrt(
+            Math.pow(pump.lat - tank.lat, 2) + 
+            Math.pow(pump.lng - tank.lng, 2)
+          );
+          
+          if (distance < minDistance && distance < 0.03) { // Only connect if within ~3km
+            minDistance = distance;
+            closestTank = tank;
+          }
+        });
+        
+        if (closestTank) {
+          baseConnections.push({ from: pump.id, to: closestTank.id });
+        }
+      }
+    });
+    
+    return baseConnections;
+  };
+
+  // Network connections between sensors
+  const networkConnections = useMemo(() => generateNetworkConnections(), []);
+
+  // Reference to the network lines layer
+  const linesLayer = useRef<any>(null);
+
+  // Draw network connections
+  const drawConnections = () => {
+    if (!leafletMap.current || !linesLayer.current) return;
+    
+    // Clear existing lines
+    linesLayer.current.clearLayers();
+    
+    import('leaflet').then((L) => {
+      // Only show connections between sensors that match the current filter
+      networkConnections.forEach(connection => {
+        // Get locations for both sensors
+        const fromSensor = findSensorById(connection.from);
+        const toSensor = findSensorById(connection.to);
+        
+        // Skip if either sensor is not found
+        if (!fromSensor || !toSensor) return;
+        
+        // Skip if either sensor doesn't match the current filter
+        if (mapMode !== 'all') {
+          const fromType = fromSensor.type;
+          const toType = toSensor.type;
+          if (fromType !== mapMode && toType !== mapMode) return;
+        }
+        
+        // Get readings to determine flow status
+        const fromReading = getLatestReading(connection.from);
+        const toReading = getLatestReading(connection.to);
+        
+        // Flow is active if:
+        // - From is a pump that's running OR a valve that's open
+        // - OR destination is a storage tank
+        let flowActive = false;
+        let flowColor = '#0066AA';
+        let dashArray = null;
+        
+        if (fromSensor.type === 'pump' && fromReading?.pumpStatus) {
+          flowActive = true;
+        } else if (fromSensor.type === 'valve' && fromReading?.valvePosition && fromReading.valvePosition > 20) {
+          flowActive = true;
+        } else if (toSensor.type === 'tank') {
+          flowActive = true;
+          dashArray = '5, 5';
+        }
+        
+        // Change color based on water quality if flowing from a water quality sensor
+        if (flowActive && fromSensor.type === 'water-quality') {
+          flowColor = getWaterQualityColor(fromReading);
+        }
+        
+        // Draw line if flow is active
+        if (flowActive) {
+          // Create polyline between the two points
+          const line = L.polyline(
+            [[fromSensor.lat, fromSensor.lng], [toSensor.lat, toSensor.lng]],
+            { 
+              color: flowColor,
+              weight: 3,
+              opacity: 0.7,
+              dashArray: dashArray
+            }
+          ).addTo(linesLayer.current);
+        }
+      });
+    });
+  };
+  
+  // Initialize map
+  useEffect(() => {
+    if (typeof window !== 'undefined' && mapRef.current && !leafletMap.current) {
+      // Dynamically import Leaflet to avoid SSR issues
+      import('leaflet').then((L) => {
+        // Create map instance with a darker style suitable for a water network
+        leafletMap.current = L.map(mapRef.current).setView([PANAMA_CITY_CENTER.lat, PANAMA_CITY_CENTER.lng], 13);
+        
+        // Add a dark-themed map tile layer - CartoDB Dark Matter
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          subdomains: 'abcd',
+          maxZoom: 19
+        }).addTo(leafletMap.current);
+        
+        // Create layer groups
+        linesLayer.current = L.layerGroup().addTo(leafletMap.current);
+        markersLayer.current = L.layerGroup().addTo(leafletMap.current);
+        
+        // Initial update
+        drawConnections();
+        updateMarkers();
+      });
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      if (leafletMap.current) {
+        leafletMap.current.remove();
+        leafletMap.current = null;
+      }
+    };
+  }, []);
+
+  // Redraw connections when map mode changes
+  useEffect(() => {
+    drawConnections();
+  }, [mapMode]);
   
   // Get the latest reading for each sensor
   const getLatestReading = (sensorId: string): Reading | null => {
@@ -351,6 +532,97 @@ const SensorMap: React.FC<SensorMapProps> = ({
     return positions;
   }, [sensors, getSensorType]); // Only recalculate when sensors array or types change
 
+  // Update markers on map based on current state
+  const updateMarkers = () => {
+    if (!markersLayer.current || !leafletMap.current) return;
+
+    // Clear existing markers
+    markersLayer.current.clearLayers();
+
+    // Apply current filter
+    const sensorsToDisplay = mapMode === 'all' 
+      ? sensors 
+      : sensors.filter(sensorId => getSensorType(sensorId) === mapMode);
+
+    // Find each sensor in our Panama City locations array or use lat/lng from readings
+    import('leaflet').then((L) => {
+      sensorsToDisplay.forEach(sensorId => {
+        // Try to find sensor in our predefined locations
+        let sensorLocation = findSensorById(sensorId);
+        const reading = getLatestReading(sensorId);
+        const sensorType = getSensorType(sensorId);
+        
+        // If not found in our predefined locations, check if the reading has coordinates
+        if (!sensorLocation && reading && reading.latitude && reading.longitude) {
+          sensorLocation = {
+            id: sensorId,
+            name: sensorId.split('-').join(' ').toUpperCase(),
+            lat: reading.latitude,
+            lng: reading.longitude,
+            type: sensorType
+          };
+        }
+        
+        // If we have coordinates for this sensor from either source
+        if (sensorLocation) {
+          // Create custom icon
+          const isSelected = sensorId === selectedSensor;
+          let color = '#888888'; // Default gray
+          
+          // Determine color based on sensor type and reading status
+          switch (sensorType) {
+            case 'water-quality':
+              color = getWaterQualityColor(reading);
+              break;
+            case 'pump':
+              color = getPumpColor(reading);
+              break;
+            case 'tank':
+              color = getTankLevelColor(reading);
+              break;
+            case 'valve':
+              color = getValveColor(reading);
+              break;
+            case 'environmental':
+              color = '#17a2b8'; // Teal for environmental sensors
+              break;
+          }
+          
+          // Create an icon with associated CSS classes
+          const iconHtml = `<div class="sensor-icon ${sensorType}-icon" style="background-color: ${color}; width: ${isSelected ? '20px' : '14px'}; height: ${isSelected ? '20px' : '14px'}; border-radius: ${sensorType === 'water-quality' ? '50%' : '3px'}; border: ${isSelected ? '3px' : '1px'} solid white;"></div>`;
+          
+          const sensorIcon = L.divIcon({
+            html: iconHtml,
+            className: `sensor-marker ${isSelected ? 'selected' : ''}`,
+            iconSize: [isSelected ? 24 : 16, isSelected ? 24 : 16],
+            iconAnchor: [isSelected ? 12 : 8, isSelected ? 12 : 8]
+          });
+          
+          // Create marker and add click handler
+          const marker = L.marker([sensorLocation.lat, sensorLocation.lng], { 
+            icon: sensorIcon,
+            zIndexOffset: isSelected ? 1000 : 0
+          }).addTo(markersLayer.current);
+          
+          // Add popup with sensor information
+          const primaryMetric = getPrimaryMetric(reading);
+          marker.bindTooltip(`
+            <div class="sensor-tooltip">
+              <div class="sensor-name">${sensorLocation.name}</div>
+              <div class="sensor-id">${sensorId}</div>
+              <div class="sensor-reading">${primaryMetric.value} ${primaryMetric.label}</div>
+            </div>
+          `);
+          
+          // Add click handler
+          marker.on('click', () => {
+            onSensorSelect(sensorId);
+          });
+        }
+      });
+    });
+  };
+  
   // Filter sensors based on current map mode
   const filteredSensors = useMemo(() => {
     return mapMode === 'all' 
@@ -358,10 +630,64 @@ const SensorMap: React.FC<SensorMapProps> = ({
       : sensors.filter(sensorId => getSensorType(sensorId) === mapMode);
   }, [sensors, mapMode, sensorTypes]); // Add sensorTypes as dependency instead of recalculating
 
+  // Update markers when filtered sensors change
+  useEffect(() => {
+    updateMarkers();
+  }, [filteredSensors, selectedSensor]);
+
   // Now calculateSensorPositions is the actual positions, not a function
   const sensorPositions = calculateSensorPositions;
 
-  // Create stable filtered sensor positions
+  // Helper to find a sensor by ID
+  const findSensorById = (sensorId: string) => {
+    return PANAMA_CITY_SENSORS.find(s => s.id === sensorId);
+  };
+
+  // Get sensor coordinates if available from our Panama City dataset
+  const getSensorCoordinates = (sensorId: string) => {
+    const sensor = findSensorById(sensorId);
+    if (sensor) {
+      return { lat: sensor.lat, lng: sensor.lng };
+    }
+    return null;
+  };
+  
+  // Focus the map on a specific sensor
+  const focusOnSensor = (sensorId: string) => {
+    if (!leafletMap.current) return;
+    const sensor = findSensorById(sensorId);
+    if (!sensor) return;
+
+    const currentZoom = leafletMap.current.getZoom();
+    leafletMap.current.setView(
+      [sensor.lat, sensor.lng],
+      currentZoom,            // ← reuse whatever zoom you're already at
+      { animate: true }       // optional, for smooth animation
+    );
+  };
+  
+  /* Alternative implementation using panTo (Option B)
+  const focusOnSensor = (sensorId: string) => {
+    if (!leafletMap.current) return;
+    const sensor = findSensorById(sensorId);
+    if (!sensor) return;
+
+    leafletMap.current.panTo(
+      [sensor.lat, sensor.lng],
+      { animate: true }       // optional, for smooth animation
+    );
+  };
+  */
+  
+  // When selected sensor changes, focus the map on it
+  useEffect(() => {
+    if (selectedSensor) {
+      focusOnSensor(selectedSensor);
+    }
+  }, [selectedSensor]);
+  
+  // Create stable filtered sensor positions for legacy SVG rendering
+  // (kept for backwards compatibility but not actively used)
   const filteredSensorPositions = useMemo(() => {
     return Object.fromEntries(
       filteredSensors.map(sensorId => [
@@ -371,176 +697,157 @@ const SensorMap: React.FC<SensorMapProps> = ({
     );
   }, [filteredSensors, sensorPositions]);
 
-  // Render sensors with simple rendered dots and more visibility
+  // Render with Leaflet map
   return (
-    <div className="w-full h-full bg-white/5 rounded-lg overflow-hidden relative">
+    <div className="w-full h-full bg-white/5 rounded-lg overflow-hidden flex flex-col relative">
       {/* Layer control buttons */}
-      <div className="flex flex-wrap gap-1 mb-2 px-2">
+      <div className="flex flex-wrap gap-1 mb-2 px-2 py-2 bg-slate-800 z-10">
         <button 
           className={`text-xs px-2 py-1 rounded ${mapMode === 'all' ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/70'}`}
-          onClick={() => setMapMode('all')}
+          onClick={() => {
+            setMapMode('all');
+          }}
         >
           All
         </button>
         <button 
           className={`text-xs px-2 py-1 rounded ${mapMode === 'water-quality' ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/70'}`}
-          onClick={() => setMapMode('water-quality')}
+          onClick={() => {
+            setMapMode('water-quality');
+          }}
         >
           Water Quality
         </button>
         <button 
           className={`text-xs px-2 py-1 rounded ${mapMode === 'pump' ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/70'}`}
-          onClick={() => setMapMode('pump')}
+          onClick={() => {
+            setMapMode('pump');
+          }}
         >
           Pumps
         </button>
         <button 
           className={`text-xs px-2 py-1 rounded ${mapMode === 'tank' ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/70'}`}
-          onClick={() => setMapMode('tank')}
+          onClick={() => {
+            setMapMode('tank');
+          }}
         >
           Tanks
         </button>
         <button 
           className={`text-xs px-2 py-1 rounded ${mapMode === 'valve' ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/70'}`}
-          onClick={() => setMapMode('valve')}
+          onClick={() => {
+            setMapMode('valve');
+          }}
         >
           Valves
+        </button>
+        <button 
+          className={`text-xs px-2 py-1 rounded ${mapMode === 'environmental' ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/70'}`}
+          onClick={() => {
+            setMapMode('environmental');
+          }}
+        >
+          Environmental
         </button>
       </div>
       
       {/* Debug overlay */}
       {sensors.length === 0 && (
-        <div className="absolute top-10 left-0 right-0 text-center text-white bg-red-500/50 p-2">
+        <div className="absolute top-10 left-0 right-0 text-center text-white bg-red-500/50 p-2 z-20">
           No sensors available
         </div>
       )}
       
-      <svg width="100%" height="calc(100% - 28px)" viewBox="0 0 400 300">
-        {/* Background with water network */}
-        <rect
-          x="0"
-          y="0"
-          width="400"
-          height="300"
-          fill="#1e293b"
-        />
+      {/* Map legend */}
+      <div className="absolute bottom-4 right-4 bg-slate-800/80 p-3 rounded-lg z-10 text-white text-xs">
+        <div className="font-bold mb-1">Sensor Types</div>
+        <div className="flex items-center gap-1 mb-1">
+          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+          <span>Water Quality</span>
+        </div>
+        <div className="flex items-center gap-1 mb-1">
+          <div className="w-3 h-3 rounded bg-green-500"></div>
+          <span>Pump Station</span>
+        </div>
+        <div className="flex items-center gap-1 mb-1">
+          <div className="w-3 h-3 rounded bg-yellow-500"></div>
+          <span>Storage Tank</span>
+        </div>
+        <div className="flex items-center gap-1 mb-1">
+          <div className="w-3 h-3 rounded transform rotate-45 bg-cyan-500"></div>
+          <span>Valve</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 bg-teal-500" style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }}></div>
+          <span>Environmental</span>
+        </div>
+      </div>
+      
+      {/* The actual map container */}
+      <div 
+        ref={mapRef} 
+        className="flex-grow w-full relative"
+        style={{ minHeight: "calc(100% - 40px)" }}
+      />
+      
+      {/* Custom CSS for map markers - added inline for demonstration */}
+      <style jsx global>{`
+        .sensor-marker {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
         
-        <path
-          d="M50,150 C100,100 200,200 350,150 L350,250 C200,300 100,200 50,250 Z"
-          fill="#0066AA"
-          fillOpacity="0.2"
-          stroke="#0066AA"
-          strokeWidth="2"
-        />
+        .sensor-icon {
+          border-radius: 50%;
+          box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
         
-        {/* Flow pipes - simplified network */}
-        <path
-          d="M100,80 L150,160 L100,230 M300,150 L250,220 M150,160 L250,220 M320,80 L300,150"
-          stroke="#0066AA"
-          strokeWidth="4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeOpacity="0.6"
-          fill="none"
-        />
-
-        {/* Fallback sensors if no positions calculated */}
-        {filteredSensors.length > 0 && Object.keys(sensorPositions).length === 0 && (
-          <g>
-            {filteredSensors.map((sensorId, idx) => {
-              // Simple grid layout
-              const col = idx % 3;
-              const row = Math.floor(idx / 3);
-              const x = 100 + (col * 100);
-              const y = 100 + (row * 70);
-              const reading = getLatestReading(sensorId);
-              const sensorType = sensorTypes[sensorId] || 'unknown';
-              const isSelected = sensorId === selectedSensor;
-              
-              return (
-                <g 
-                  key={`fallback-${sensorId}`} 
-                  transform={`translate(${x}, ${y})`}
-                  onClick={() => onSensorSelect(sensorId)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  {getSensorIcon(sensorType, reading, sensorId)}
-                  <text
-                    y="20"
-                    textAnchor="middle"
-                    fill="white"
-                    fontSize={isSelected ? "12" : "10"}
-                    fontWeight={isSelected ? 'bold' : 'normal'}
-                  >
-                    {sensorId.split('-').pop()}
-                  </text>
-                  <text
-                    y="35"
-                    textAnchor="middle"
-                    fill="white"
-                    fontSize="10"
-                  >
-                    {getPrimaryMetric(reading).value} {getPrimaryMetric(reading).label}
-                  </text>
-                </g>
-              );
-            })}
-          </g>
-        )}
-
-        {/* Render sensors with positions */}
-        {filteredSensors.map(sensorId => {
-          const position = sensorPositions[sensorId] || { x: 200, y: 150 };
-          const reading = getLatestReading(sensorId);
-          const sensorType = sensorTypes[sensorId] || 'unknown';
-          const isSelected = sensorId === selectedSensor;
-          const primaryMetric = getPrimaryMetric(reading);
-
-          return (
-            <g 
-              key={sensorId} 
-              transform={`translate(${position.x}, ${position.y})`}
-              onClick={() => onSensorSelect(sensorId)}
-              style={{ cursor: 'pointer' }}
-            >
-              {/* Highlight selected sensor */}
-              {isSelected && (
-                <circle
-                  r="20"
-                  fill="none"
-                  stroke="white"
-                  strokeWidth="2"
-                  strokeDasharray="2 2"
-                />
-              )}
-              
-              {/* Render appropriate sensor icon */}
-              {getSensorIcon(sensorType, reading, sensorId)}
-              
-              {/* Sensor ID */}
-              <text
-                y="20"
-                textAnchor="middle"
-                fill="white"
-                fontSize={isSelected ? "12" : "10"}
-                fontWeight={isSelected ? 'bold' : 'normal'}
-              >
-                {sensorId.split('-').pop()}
-              </text>
-              
-              {/* Primary metric value */}
-              <text
-                y="35"
-                textAnchor="middle"
-                fill="white"
-                fontSize="10"
-              >
-                {primaryMetric.value} {primaryMetric.label}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
+        .water-quality-icon {
+          border-radius: 50%;
+        }
+        
+        .pump-icon {
+          border-radius: 3px;
+        }
+        
+        .tank-icon {
+          border-radius: 3px;
+        }
+        
+        .valve-icon {
+          transform: rotate(45deg);
+        }
+        
+        .environmental-icon {
+          border-radius: 0;
+          clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+        }
+        
+        .selected {
+          z-index: 1000;
+        }
+        
+        .sensor-tooltip {
+          padding: 5px;
+        }
+        
+        .sensor-name {
+          font-weight: bold;
+          margin-bottom: 3px;
+        }
+        
+        .sensor-id {
+          font-size: 0.8em;
+          opacity: 0.8;
+          margin-bottom: 3px;
+        }
+        
+        .sensor-reading {
+          font-weight: bold;
+        }
+      `}</style>
     </div>
   );
 };

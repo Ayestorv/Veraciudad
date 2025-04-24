@@ -276,26 +276,6 @@ const SensorDetails: React.FC<SensorDetailsProps> = ({
               </div>
             </div>
             {getSensorStatusInfo()}
-
-            {/* Additional sensor list */}
-            <div className="mt-4 pt-4 border-t border-slate-700">
-              <h4 className="text-sm font-medium mb-2 text-slate-400">All Sensors</h4>
-              <div className="grid grid-cols-2 gap-2 max-h-[120px] overflow-y-auto">
-                {sensors.map((sensorId) => (
-                  <button
-                    key={sensorId}
-                    onClick={() => onSensorSelect(sensorId)}
-                    className={`text-xs px-2 py-1.5 rounded text-left truncate ${
-                      selectedSensor === sensorId 
-                        ? 'bg-indigo-600 text-white' 
-                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                    }`}
-                  >
-                    {sensorId}
-                  </button>
-                ))}
-              </div>
-            </div>
           </>
         ) : (
           <div className="text-center py-8 text-slate-400 h-full flex items-center justify-center">

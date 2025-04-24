@@ -26,7 +26,7 @@ import SensorMap from '../components/SensorMap';
 import Timeline from '../components/Timeline';
 import SensorDetails from '../components/SensorDetails';
 import MetricsChart from '../components/MetricsChart';
-import { SENSOR_IDS, generateDummyReadings, generateDummyEvents } from '../utils/dummyData';
+import { SENSOR_IDS, generateDummyReadings, generateDummyEvents, PANAMA_CITY_SENSORS } from '../utils/dummyData';
 
 // Register ChartJS components
 ChartJS.register(
@@ -126,6 +126,12 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
   const selectedSensorRef = useRef<string | null>(null); // Use ref to track selected sensor
+  const activeMetricTabRef = useRef<string>('primary'); // Add ref to track the current tab
+  
+  // Keep the ref in sync with state
+  useEffect(() => {
+    activeMetricTabRef.current = activeMetricTab;
+  }, [activeMetricTab]);
   
   // Create a stable callback for sensor selection
   const handleSensorSelect = useCallback((sensorId: string) => {
@@ -177,19 +183,33 @@ const Dashboard = () => {
 
     // Set up polling for readings
     pollingInterval.current = setInterval(() => {
-      // Use ref value for more reliable sensor tracking
+      // Capture current states
       const currentSensor = selectedSensorRef.current;
-      const currentTab = activeMetricTab;
+      const currentTab = activeMetricTabRef.current;
+      
+      console.log('Before fetching - Tab state:', currentTab);
+      
+      // Store states in localStorage for persistence
+      if (currentTab) {
+        localStorage.setItem('activeMetricTab', currentTab);
+      }
       
       // Fetch new readings data
       fetchReadings().then(() => {
-        // After fetching completes, explicitly restore both states
-        if (currentSensor) {
-          console.log('Restoring sensor selection to:', currentSensor);
+        console.log('After fetching - Restoring state - Tab:', currentTab, 'Sensor:', currentSensor);
+        
+        // Explicitly restore states to prevent loss during re-renders
+        if (currentSensor && currentSensor !== selectedSensorRef.current) {
           setSelectedSensor(currentSensor);
           selectedSensorRef.current = currentSensor;
         }
-        setActiveMetricTab(currentTab);
+        
+        // Only restore tab if it's different from the current state
+        // This prevents unnecessary re-renders and state flushes
+        if (currentTab && currentTab !== activeMetricTabRef.current) {
+          console.log('Restoring tab state after fetch to:', currentTab);
+          setActiveMetricTab(currentTab);
+        }
       });
       
       // Update last updated timestamp
@@ -251,15 +271,16 @@ const Dashboard = () => {
 
   // Fetch readings from API
   const fetchReadings = async () => {
+    // IMPORTANT: Save current state BEFORE any state changes
+    const currentSelectedSensor = selectedSensorRef.current || selectedSensor;
+    const currentMetricTab = activeMetricTabRef.current;
+    
+    console.log('fetchReadings - Initial tab state:', currentMetricTab, 'Sensor:', currentSelectedSensor);
+    
     try {
       // Try to fetch readings for all sensors from API
       const readingsData: Record<string, Reading[]> = {};
       let apiSuccessful = true;
-      
-      // Save the current state of metrics tab and selected sensor to preserve them during data refresh
-      // Use ref value for more reliable tracking across async operations
-      const currentSelectedSensor = selectedSensorRef.current || selectedSensor;
-      const currentMetricTab = activeMetricTab;
       
       // Fetch all sensors if we don't have any yet
       if (sensors.length === 0) {
@@ -288,8 +309,11 @@ const Dashboard = () => {
           }
           // If currentSelectedSensor exists in the new list, don't change it
         } catch (error) {
-          console.log('API error - Using dummy sensor data', SENSOR_IDS);
+          console.log('API error - Using dummy sensor data', SENSOR_IDS.length, 'sensors');
+          
+          // Ensure we're using the latest sensor IDs from dummyData.js
           setSensors(SENSOR_IDS);
+          
           // Keep existing selection if possible, otherwise use first sensor
           if (selectedSensor === null && SENSOR_IDS.length > 0) {
             const newSensor = SENSOR_IDS[0];
@@ -298,6 +322,11 @@ const Dashboard = () => {
           } else if (selectedSensor && SENSOR_IDS.includes(selectedSensor)) {
             // Make sure the ref is updated to match current sensor
             selectedSensorRef.current = selectedSensor;
+          } else if (SENSOR_IDS.length > 0) {
+            // If current selection is not in the new sensor list, use the first one
+            const newSensor = SENSOR_IDS[0];
+            setSelectedSensor(newSensor);
+            selectedSensorRef.current = newSensor;
           }
           apiSuccessful = false;
         }
@@ -320,8 +349,13 @@ const Dashboard = () => {
       
       // Use dummy data if API failed or no readings found
       if (!apiSuccessful || Object.keys(readingsData).length === 0) {
-        console.log('Using dummy reading data');
+        console.log('Using dummy reading data for', SENSOR_IDS.length, 'sensors');
         const dummyReadings = generateDummyReadings() as Record<string, Reading[]>;
+        
+        // Make sure sensors state is updated with the latest SENSOR_IDS
+        if (JSON.stringify(sensors) !== JSON.stringify(SENSOR_IDS)) {
+          setSensors(SENSOR_IDS);
+        }
         
         // Only update readings if they've actually changed
         setReadings(prevReadings => {
@@ -336,9 +370,6 @@ const Dashboard = () => {
           setEvents(generateDummyEvents());
           setAlertCount(generateDummyEvents().length);
         }
-        
-        // Restore the active metrics tab to maintain focus
-        setActiveMetricTab(currentMetricTab);
       } else {
         console.log('Using API data readings:', Object.keys(readingsData).length, 'sensors');
         // Only update readings if they've actually changed
@@ -348,9 +379,6 @@ const Dashboard = () => {
           }
           return prevReadings;
         });
-        
-        // Restore the active metrics tab to maintain focus
-        setActiveMetricTab(currentMetricTab);
       }
       
       // Update alert count by checking for threshold breaches in the new readings
@@ -372,22 +400,35 @@ const Dashboard = () => {
         setAlertCount(newAlertCount);
       }
       
-      // CRITICAL: Restore the selected sensor state that we saved earlier
-      // This ensures we don't lose focus on the current sensor during data refresh
-      if (currentSelectedSensor) {
-        console.log('Restoring sensor selection at end of fetchReadings:', currentSelectedSensor);
-        setSelectedSensor(currentSelectedSensor);
-        selectedSensorRef.current = currentSelectedSensor;
-      }
-      
     } catch (error) {
       console.error('Error fetching readings:', error);
       
       // Fallback to dummy data
       const dummyReadings = generateDummyReadings() as Record<string, Reading[]>;
+      
+      // Make sure sensors state is updated with the latest SENSOR_IDS
+      if (JSON.stringify(sensors) !== JSON.stringify(SENSOR_IDS)) {
+        setSensors(SENSOR_IDS);
+      }
+      
       setReadings(dummyReadings);
       if (events.length === 0) {
         setEvents(generateDummyEvents());
+      }
+    } finally {
+      // CRITICAL: Always restore the selected sensor and active tab that were saved at the beginning
+      console.log('fetchReadings completed - Restoring tab state:', currentMetricTab, 'Sensor:', currentSelectedSensor);
+      
+      if (currentSelectedSensor && currentSelectedSensor !== selectedSensorRef.current) {
+        setSelectedSensor(currentSelectedSensor);
+        selectedSensorRef.current = currentSelectedSensor;
+      }
+      
+      // Only restore the tab state if it actually changed during the fetch operation
+      // or if it doesn't match what's currently in the ref
+      if (currentMetricTab && activeMetricTabRef.current !== currentMetricTab) {
+        console.log('Tab state changed during fetch, restoring to:', currentMetricTab);
+        setActiveMetricTab(currentMetricTab);
       }
     }
   };
@@ -484,7 +525,6 @@ const Dashboard = () => {
               <GlassCard className={`${theme === 'dark' ? '' : 'bg-white/80 text-slate-800 border border-slate-200'}`}>
                 <div className="h-[380px]">
                   <SensorMap
-                    key={`sensormap-${selectedSensor || 'none'}`}
                     sensors={sensors}
                     readings={readings}
                     selectedSensor={selectedSensor}
@@ -496,8 +536,8 @@ const Dashboard = () => {
               {/* Metrics Chart */}
               <GlassCard className={`${theme === 'dark' ? '' : 'bg-white/80 text-slate-800 border border-slate-200'}`}>
                 <div className="h-[300px]">
+                  {/* Don't use a key at all to prevent remounting */}
                   <MetricsChart 
-                    key={`metrics-${selectedSensor || 'none'}-${activeMetricTab}`}
                     selectedSensor={selectedSensor}
                     readings={readings}
                     activeMetricTab={activeMetricTab}
@@ -513,7 +553,6 @@ const Dashboard = () => {
               <GlassCard className={`${theme === 'dark' ? '' : 'bg-white/80 text-slate-800 border border-slate-200'}`}>
                 <div className="h-[380px]">
                   <SensorDetails
-                    key={`details-${selectedSensor || 'none'}`}
                     selectedSensor={selectedSensor}
                     sensors={sensors}
                     readings={readings}
