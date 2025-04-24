@@ -20,6 +20,13 @@ export default function Home() {
             View Dashboard
           </button>
           
+          <button
+            className="bg-accentBlue text-white py-3 px-6 rounded-lg hover:bg-opacity-80 transition"
+            onClick={() => router.push('/test/dashboard')}
+          >
+            View Test Dashboard
+          </button>
+          
           <a
             href="https://github.com/yourusername/water-quality-monitor"
             target="_blank"

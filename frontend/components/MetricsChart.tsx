@@ -65,6 +65,134 @@ type MetricsChartProps = {
   setActiveMetricTab: (tab: string) => void;
 };
 
+// Helper function to generate CSV data from readings
+const generateCSV = (
+  readings: Reading[], 
+  sensorType: string, 
+  includePrimary: boolean = true, 
+  includeSecondary: boolean = true
+): string => {
+  if (!readings || readings.length === 0) return '';
+  
+  // Determine which fields to include based on sensor type and tab selections
+  let headers: string[] = ['Timestamp'];
+  let rows: string[][] = [];
+  
+  // Add date in ISO format for each reading
+  readings.forEach(reading => {
+    const row: string[] = [new Date(reading.timestamp).toISOString()];
+    rows.push(row);
+  });
+  
+  // Add metrics based on sensor type and which tabs to include
+  if (sensorType === 'water-quality') {
+    if (includePrimary) {
+      headers.push('Turbidity (NTU)', 'pH', 'Temperature (°C)', 'Conductivity (μS/cm)');
+      readings.forEach((reading, idx) => {
+        rows[idx].push(
+          String(reading.turbidity ?? ''),
+          String(reading.pH ?? ''),
+          String(reading.temperature ?? ''),
+          String(reading.conductivity ?? '')
+        );
+      });
+    }
+    
+    if (includeSecondary) {
+      headers.push('Chlorine (mg/L)', 'TDS (mg/L)', 'Dissolved Oxygen (mg/L)', 'ORP (mV)');
+      readings.forEach((reading, idx) => {
+        rows[idx].push(
+          String(reading.chlorineResidual ?? ''),
+          String(reading.tds ?? ''),
+          String(reading.dissolvedOxygen ?? ''),
+          String(reading.orp ?? '')
+        );
+      });
+    }
+  } else if (sensorType === 'pump') {
+    if (includePrimary) {
+      headers.push('Flow Rate (L/min)', 'Pressure (bar)', 'Vibration (mm/s)');
+      readings.forEach((reading, idx) => {
+        rows[idx].push(
+          String(reading.flowRate ?? ''),
+          String(reading.pressure ?? ''),
+          String(reading.vibration ?? '')
+        );
+      });
+    }
+    
+    if (includeSecondary) {
+      headers.push('Motor Current (A)', 'Energy (kWh)', 'Bearing Temp (°C)');
+      readings.forEach((reading, idx) => {
+        rows[idx].push(
+          String(reading.motorCurrent ?? ''),
+          String(reading.energyConsumption ?? ''),
+          String(reading.bearingTemperature ?? '')
+        );
+      });
+    }
+  } else if (sensorType === 'tank') {
+    if (includePrimary) {
+      headers.push('Tank Level (%)', 'Volume (m³)', 'Temperature (°C)');
+      readings.forEach((reading, idx) => {
+        rows[idx].push(
+          String(reading.tankLevel ?? ''),
+          String(reading.currentVolume ?? ''),
+          String(reading.temperature ?? '')
+        );
+      });
+    }
+    
+    if (includeSecondary) {
+      headers.push('Water Depth (m)', 'Time to Empty (hours)');
+      
+      // Calculate time to empty for each row
+      readings.forEach((reading, idx) => {
+        let timeToEmpty = '';
+        if (idx >= 2) {
+          const levelChange = (reading.tankLevel || 0) - (readings[idx-2].tankLevel || 0);
+          const timeChange = (reading.timestamp - readings[idx-2].timestamp) / 1000 / 60;
+          const rate = levelChange / timeChange;
+          if (rate < 0 && reading.tankLevel) {
+            timeToEmpty = String(-(reading.tankLevel / rate) / 60);
+          }
+        }
+        
+        rows[idx].push(
+          String(reading.waterDepth ?? ''),
+          timeToEmpty
+        );
+      });
+    }
+  } else if (sensorType === 'valve') {
+    headers.push('Valve Position (%)', 'Flow Rate (L/min)', 'Pressure (bar)');
+    readings.forEach((reading, idx) => {
+      rows[idx].push(
+        String(reading.valvePosition ?? ''),
+        String(reading.flowRate ?? ''),
+        String(reading.pressure ?? '')
+      );
+    });
+  } else if (sensorType === 'environmental') {
+    headers.push('Rainfall (mm)', 'Temperature (°C)', 'Humidity (%)');
+    readings.forEach((reading, idx) => {
+      rows[idx].push(
+        String(reading.rainfall ?? ''),
+        String(reading.ambientTemperature ?? ''),
+        String(reading.humidity ?? '')
+      );
+    });
+  }
+  
+  // Create CSV content
+  const csvContent = [
+    headers.join(','),
+    ...rows.map(row => row.join(','))
+  ].join('\n');
+  
+  return csvContent;
+};
+
 const MetricsChart: React.FC<MetricsChartProps> = ({ 
   selectedSensor, 
   readings, 
@@ -76,6 +204,45 @@ const MetricsChart: React.FC<MetricsChartProps> = ({
     if (!sensorId || !readings[sensorId] || readings[sensorId].length === 0) return 'unknown';
     return readings[sensorId][0].sensorType || 'unknown';
   }, [readings]);
+
+  // Export metrics data to CSV
+  const handleExportCSV = React.useCallback(() => {
+    if (!selectedSensor || !readings[selectedSensor] || readings[selectedSensor].length === 0) {
+      console.error('No data available to export');
+      return;
+    }
+    
+    const sensorReadings = readings[selectedSensor];
+    const sensorType = getSensorType(selectedSensor);
+    const sensorName = selectedSensor || 'sensor';
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `${sensorName}-metrics-${timestamp}.csv`;
+    
+    // Determine if we need both primary and secondary metrics
+    const hasPrimaryAndSecondary = 
+      sensorType !== 'valve' && 
+      sensorType !== 'environmental';
+    
+    // Generate CSV with appropriate metrics
+    const csvContent = generateCSV(
+      sensorReadings,
+      sensorType,
+      true, // Always include primary
+      hasPrimaryAndSecondary // Include secondary only if applicable
+    );
+    
+    // Create a blob and download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [selectedSensor, readings, getSensorType]);
 
   // When tab is changed, update parent state and localStorage
   const handleTabChange = React.useCallback((tab: string) => {
@@ -892,7 +1059,7 @@ const MetricsChart: React.FC<MetricsChartProps> = ({
       <div className="flex justify-between items-center mb-3">
         <h2 className="text-lg font-semibold">Metrics</h2>
         {selectedSensor && (
-          <>
+          <div className="flex gap-2 items-center">
             {/* Only show tabs for sensor types that have secondary metrics */}
             {getSensorType(selectedSensor) !== 'valve' && getSensorType(selectedSensor) !== 'environmental' && (
               <div className="flex p-1 bg-slate-800/60 rounded-lg">
@@ -918,7 +1085,19 @@ const MetricsChart: React.FC<MetricsChartProps> = ({
                 </button>
               </div>
             )}
-          </>
+            
+            {/* Export button */}
+            <button
+              className="flex items-center gap-1 px-3 py-1 rounded-md text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-500 transition-colors"
+              onClick={handleExportCSV}
+              title="Export to CSV"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+              CSV
+            </button>
+          </div>
         )}
       </div>
       <div className="flex-1">
