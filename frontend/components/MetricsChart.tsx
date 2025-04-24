@@ -56,6 +56,10 @@ type Reading = {
   ambientTemperature?: number;
   humidity?: number;
   soilMoisture?: number;
+  
+  // Garbage
+  fillLevel?: number;
+  doorOpen?: boolean;
 };
 
 type MetricsChartProps = {
@@ -182,6 +186,24 @@ const generateCSV = (
         String(reading.humidity ?? '')
       );
     });
+  } else if (sensorType === 'garbage') {
+    if (includePrimary) {
+      headers.push('Fill Level (%)', 'Door Open', 'Battery Level (%)');
+    }
+    
+    rows = readings.map(reading => {
+      const row: string[] = [new Date(reading.timestamp).toISOString()];
+      
+      if (includePrimary) {
+        row.push(
+          reading.fillLevel?.toString() || '',
+          reading.doorOpen ? '1' : '0',
+          reading.batteryLevel?.toString() || ''
+        );
+      }
+      
+      return row;
+    });
   }
   
   // Create CSV content
@@ -221,7 +243,8 @@ const MetricsChart: React.FC<MetricsChartProps> = ({
     // Determine if we need both primary and secondary metrics
     const hasPrimaryAndSecondary = 
       sensorType !== 'valve' && 
-      sensorType !== 'environmental';
+      sensorType !== 'environmental' &&
+      sensorType !== 'garbage';
     
     // Generate CSV with appropriate metrics
     const csvContent = generateCSV(
@@ -570,6 +593,54 @@ const MetricsChart: React.FC<MetricsChartProps> = ({
           },
         ],
       };
+    } else if (sensorType === 'garbage') {
+      if (activeMetricTab === 'primary') {
+        return {
+          labels,
+          datasets: [
+            {
+              label: 'Fill Level (%)',
+              data: sensorReadings.map(r => r.fillLevel || null),
+              borderColor: 'rgba(40, 167, 69, 1)',
+              backgroundColor: 'rgba(40, 167, 69, 0.2)',
+              borderWidth: 2,
+              tension: 0.4,
+              fill: true,
+              yAxisID: 'y'
+            },
+            {
+              label: 'Battery Level (%)',
+              data: sensorReadings.map(r => r.batteryLevel || null),
+              borderColor: 'rgba(108, 117, 125, 1)',
+              backgroundColor: 'rgba(108, 117, 125, 0.1)',
+              borderWidth: 1,
+              tension: 0.4,
+              borderDash: [5, 5],
+              fill: false,
+              yAxisID: 'y'
+            }
+          ]
+        };
+      } else {
+        return {
+          labels,
+          datasets: [
+            {
+              label: 'Door Open Events',
+              data: sensorReadings.map(r => r.doorOpen ? 1 : 0),
+              borderColor: 'rgba(255, 193, 7, 1)',
+              backgroundColor: 'rgba(255, 193, 7, 0.2)',
+              borderWidth: 2,
+              tension: 0,
+              fill: true,
+              yAxisID: 'y',
+              pointRadius: sensorReadings.map(r => r.doorOpen ? 4 : 0),
+              pointBackgroundColor: 'rgba(255, 193, 7, 1)',
+              stepped: 'before' as 'before'
+            }
+          ]
+        };
+      }
     } else {
       // Default fallback
       return {
@@ -1048,6 +1119,51 @@ const MetricsChart: React.FC<MetricsChartProps> = ({
           },
         },
       };
+    } else if (sensorType === 'garbage') {
+      if (activeMetricTab === 'primary') {
+        return {
+          ...baseOptions,
+          scales: {
+            ...baseOptions.scales,
+            y: {
+              ...baseOptions.scales.y,
+              position: 'left',
+              title: {
+                display: true,
+                text: 'Fill Level (%)',
+                color: 'rgba(255, 255, 255, 0.8)',
+              },
+              min: 0,
+              max: 100,
+            }
+          }
+        };
+      } else {
+        return {
+          ...baseOptions,
+          scales: {
+            ...baseOptions.scales,
+            y: {
+              ...baseOptions.scales.y,
+              position: 'left',
+              title: {
+                display: true,
+                text: 'Door Status',
+                color: 'rgba(255, 255, 255, 0.8)',
+              },
+              min: 0,
+              max: 1,
+              ticks: {
+                ...baseOptions.scales.y.ticks,
+                stepSize: 1,
+                callback: function(value) {
+                  return value === 0 ? 'Closed' : 'Open';
+                }
+              }
+            }
+          }
+        };
+      }
     } else {
       // Default fallback
       return baseOptions;

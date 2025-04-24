@@ -1,6 +1,20 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import 'leaflet/dist/leaflet.css';
 import { SENSOR_IDS, PANAMA_CITY_SENSORS, PANAMA_CITY_CENTER, NETWORK_CONNECTIONS } from '../utils/dummyData';
+// Dynamically import garbage-related data using require to avoid issues
+// with server-side rendering
+let GARBAGE_BINS: any[] = [];
+let BIN_NETWORK_CONNECTIONS: any[] = [];
+if (typeof window !== 'undefined') {
+  try {
+    const garbageData = require('../utils/garbageDummyData');
+    GARBAGE_BINS = garbageData.GARBAGE_BINS;
+    BIN_NETWORK_CONNECTIONS = garbageData.BIN_NETWORK_CONNECTIONS;
+  } catch (e) {
+    console.warn('Failed to load garbage data:', e);
+  }
+}
+import L from 'leaflet';
 
 // Enhanced Reading type with all possible metrics
 type Reading = {
@@ -57,6 +71,12 @@ type Reading = {
   ambientTemperature?: number;
   humidity?: number;
   soilMoisture?: number;
+  
+  // Garbage
+  fillLevel?: number;
+  doorOpen?: boolean;
+  lastCollectionTimestamp?: number;
+  binType?: string;
 };
 
 type SensorMapProps = {
@@ -80,6 +100,18 @@ const SensorMap: React.FC<SensorMapProps> = ({
   
   // Generate network connections dynamically
   const generateNetworkConnections = () => {
+    // Check if we're dealing with garbage bins
+    if (sensors.length > 0 && sensors[0].startsWith('bin-')) {
+      try {
+        // For garbage bins, use the bin connections
+        return BIN_NETWORK_CONNECTIONS;
+      } catch (e) {
+        console.error('Error loading bin connections:', e);
+        return [];
+      }
+    }
+    
+    // Otherwise, use water system connections
     // Start with base connections from dummyData.js
     const baseConnections = [...NETWORK_CONNECTIONS];
     
@@ -220,6 +252,9 @@ const SensorMap: React.FC<SensorMapProps> = ({
     if (typeof window !== 'undefined' && mapRef.current && !leafletMap.current) {
       // Dynamically import Leaflet to avoid SSR issues
       import('leaflet').then((L) => {
+        // Determine if we're showing garbage bins
+        const isGarbageDashboard = sensors.length > 0 && sensors[0].startsWith('bin-');
+        
         // Create map instance with a darker style suitable for a water network
         leafletMap.current = L.map(mapRef.current).setView([PANAMA_CITY_CENTER.lat, PANAMA_CITY_CENTER.lng], 13);
         
@@ -330,6 +365,16 @@ const SensorMap: React.FC<SensorMapProps> = ({
     return '#17a2b8'; // Partially open
   };
 
+  // Get fill level color for garbage bins
+  const getFillLevelColor = (reading: Reading | null): string => {
+    if (!reading || reading.fillLevel === undefined) return '#cccccc';
+    
+    // Based on garbage bin fill level
+    if (reading.fillLevel > 90) return '#DC3545'; // Red - nearly full
+    if (reading.fillLevel > 70) return '#FFC107'; // Yellow - medium fill level
+    return '#28A745'; // Green - low fill level
+  };
+
   // Get primary metric to display based on sensor type
   const getPrimaryMetric = (reading: Reading | null): { value: string, label: string } => {
     if (!reading) return { value: 'N/A', label: '' };
@@ -359,6 +404,12 @@ const SensorMap: React.FC<SensorMapProps> = ({
         return { 
           value: reading.rainfall?.toFixed(1) || 'N/A',
           label: 'mm'
+        };
+      case 'garbage':
+        // For garbage bins, show fill level
+        return { 
+          value: reading.fillLevel?.toFixed(0) || 'N/A', 
+          label: '%' 
         };
       default:
         return { value: 'N/A', label: '' };
@@ -475,6 +526,50 @@ const SensorMap: React.FC<SensorMapProps> = ({
             />
           </g>
         );
+      case 'garbage':
+        // For garbage bins, we'll create a bin icon with fill level
+        const binFillLevel = reading?.fillLevel || 0;
+        const binHeight = isSelected ? 24 : 18;
+        const binWidth = isSelected ? 20 : 16;
+        const binX = isSelected ? -10 : -8;
+        const binY = isSelected ? -12 : -9;
+        const binFillHeight = (binFillLevel / 100) * binHeight;
+        const binFillY = binY + binHeight - binFillHeight;
+        const doorOpen = reading?.doorOpen || false;
+        
+        return (
+          <g>
+            {/* Bin body outline */}
+            <rect
+              x={binX}
+              y={binY}
+              width={binWidth}
+              height={binHeight}
+              rx="2"
+              fill="none"
+              stroke={isSelected ? 'white' : 'rgba(255,255,255,0.5)'}
+              strokeWidth={isSelected ? 3 : 1}
+            />
+            {/* Bin fill level */}
+            <rect
+              x={binX}
+              y={binFillY}
+              width={binWidth}
+              height={binFillHeight}
+              rx="2"
+              fill={getFillLevelColor(reading)}
+            />
+            {/* Bin lid - show angled if door is open */}
+            <rect
+              x={binX - 2}
+              y={binY - 3}
+              width={binWidth + 4}
+              height={2}
+              fill="white"
+              transform={doorOpen ? `rotate(30, ${binX + binWidth/2}, ${binY - 2})` : ''}
+            />
+          </g>
+        );
       default:
         return (
           <circle
@@ -586,6 +681,9 @@ const SensorMap: React.FC<SensorMapProps> = ({
             case 'environmental':
               color = '#17a2b8'; // Teal for environmental sensors
               break;
+            case 'garbage':
+              color = getFillLevelColor(reading);
+              break;
           }
           
           // Create an icon with associated CSS classes
@@ -640,6 +738,13 @@ const SensorMap: React.FC<SensorMapProps> = ({
 
   // Helper to find a sensor by ID
   const findSensorById = (sensorId: string) => {
+    // Check if this is a garbage bin ID
+    if (sensorId.startsWith('bin-')) {
+      // Dynamically import and use GARBAGE_BINS
+      return GARBAGE_BINS.find(s => s.id === sensorId);
+    }
+    
+    // Otherwise use water system sensors
     return PANAMA_CITY_SENSORS.find(s => s.id === sensorId);
   };
 
@@ -711,44 +816,12 @@ const SensorMap: React.FC<SensorMapProps> = ({
           All
         </button>
         <button 
-          className={`text-xs px-2 py-1 rounded ${mapMode === 'water-quality' ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/70'}`}
+          className={`text-xs px-2 py-1 rounded ${mapMode === 'garbage' ? 'bg-green-500 text-white' : 'bg-white/10 text-white/70'}`}
           onClick={() => {
-            setMapMode('water-quality');
+            setMapMode('garbage');
           }}
         >
-          Water Quality
-        </button>
-        <button 
-          className={`text-xs px-2 py-1 rounded ${mapMode === 'pump' ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/70'}`}
-          onClick={() => {
-            setMapMode('pump');
-          }}
-        >
-          Pumps
-        </button>
-        <button 
-          className={`text-xs px-2 py-1 rounded ${mapMode === 'tank' ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/70'}`}
-          onClick={() => {
-            setMapMode('tank');
-          }}
-        >
-          Tanks
-        </button>
-        <button 
-          className={`text-xs px-2 py-1 rounded ${mapMode === 'valve' ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/70'}`}
-          onClick={() => {
-            setMapMode('valve');
-          }}
-        >
-          Valves
-        </button>
-        <button 
-          className={`text-xs px-2 py-1 rounded ${mapMode === 'environmental' ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/70'}`}
-          onClick={() => {
-            setMapMode('environmental');
-          }}
-        >
-          Environmental
+          Garbage
         </button>
       </div>
       
@@ -763,24 +836,8 @@ const SensorMap: React.FC<SensorMapProps> = ({
       <div className="absolute bottom-4 right-4 bg-slate-800/80 p-3 rounded-lg z-10 text-white text-xs">
         <div className="font-bold mb-1">Sensor Types</div>
         <div className="flex items-center gap-1 mb-1">
-          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-          <span>Water Quality</span>
-        </div>
-        <div className="flex items-center gap-1 mb-1">
           <div className="w-3 h-3 rounded bg-green-500"></div>
-          <span>Pump Station</span>
-        </div>
-        <div className="flex items-center gap-1 mb-1">
-          <div className="w-3 h-3 rounded bg-yellow-500"></div>
-          <span>Storage Tank</span>
-        </div>
-        <div className="flex items-center gap-1 mb-1">
-          <div className="w-3 h-3 rounded transform rotate-45 bg-cyan-500"></div>
-          <span>Valve</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-3 h-3 bg-teal-500" style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }}></div>
-          <span>Environmental</span>
+          <span>Garbage Bin</span>
         </div>
       </div>
       

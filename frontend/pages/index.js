@@ -7,24 +7,32 @@ export default function Home() {
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
       <GlassCard className="max-w-2xl w-full text-center">
-        <h1 className="text-4xl font-bold text-white mb-6">Water Quality Monitoring System</h1>
+        <h1 className="text-4xl font-bold text-white mb-6">Panama Smart City</h1>
         <p className="text-gray-200 mb-8">
-          Real-time IoT water quality monitoring with blockchain integration
+          A smart city platform for Panama City integrated with blockchain technology and IoT sensors for realtime data collection and analysis
         </p>
         
         <div className="flex flex-col md:flex-row gap-4 justify-center">
-          <button
-            className="bg-accentBlue text-white py-3 px-6 rounded-lg hover:bg-opacity-80 transition"
-            onClick={() => router.push('/dashboard')}
-          >
-            View Dashboard
-          </button>
           
           <button
             className="bg-accentBlue text-white py-3 px-6 rounded-lg hover:bg-opacity-80 transition"
             onClick={() => router.push('/test/dashboard')}
           >
             View Test Dashboard
+          </button>
+          
+          <button
+            className="bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-opacity-80 transition"
+            onClick={() => router.push('/garbage-management')}
+          >
+            Garbage Management
+          </button>
+          
+          <button
+            className="bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-opacity-80 transition"
+            onClick={() => router.push('/test/garbage-dashboard')}
+          >
+            Test Garbage Dashboard
           </button>
           
           <a

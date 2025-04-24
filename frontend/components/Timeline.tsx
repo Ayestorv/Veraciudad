@@ -24,7 +24,16 @@ const Timeline: React.FC<TimelineProps> = ({ events }) => {
 
   // Helper to get metric type name
   const getMetricName = (event: BlockchainEvent): string => {
-    if (event.metricType) return event.metricType;
+    if (event.metricType) {
+      // Handle garbage-specific event types
+      switch (event.metricType) {
+        case 'fillLevelAlert': return 'Fill Level Alert';
+        case 'collectionConfirmed': return 'Collection Confirmed';
+        case 'doorOpenAlert': return 'Door Open Alert';
+        case 'batteryLow': return 'Battery Low';
+        default: return event.metricType;
+      }
+    }
     
     // Determine based on sensorId
     if (event.sensorId.includes('wq-sensor')) {
@@ -37,6 +46,8 @@ const Timeline: React.FC<TimelineProps> = ({ events }) => {
       return 'Valve Position';
     } else if (event.sensorId.includes('env')) {
       return 'Rainfall';
+    } else if (event.sensorId.includes('bin')) {
+      return 'Fill Level';
     }
     
     return 'Measurement';
@@ -52,6 +63,11 @@ const Timeline: React.FC<TimelineProps> = ({ events }) => {
       case 'Tank Level': return '%';
       case 'Valve Position': return '% open';
       case 'Rainfall': return 'mm';
+      case 'Fill Level':
+      case 'Fill Level Alert': return '%';
+      case 'Collection Confirmed': return '';
+      case 'Door Open Alert': return '';
+      case 'Battery Low': return '%';
       default: return '';
     }
   };
@@ -61,11 +77,38 @@ const Timeline: React.FC<TimelineProps> = ({ events }) => {
     const metricName = getMetricName(event);
     const value = event.value;
     
+    // Handle garbage-specific metric colors
+    if (metricName === 'Fill Level Alert' || metricName === 'Fill Level') {
+      if (value > 90) return 'text-red-400';
+      if (value > 70) return 'text-yellow-400';
+      return 'text-green-400';
+    }
+    
+    if (metricName === 'Door Open Alert') return 'text-yellow-400';
+    if (metricName === 'Collection Confirmed') return 'text-green-400';
+    if (metricName === 'Battery Low') return 'text-red-400';
+    
+    // Handle water system metrics
     if (metricName === 'Turbidity' && value > 70) return 'text-red-400';
     if (metricName === 'Turbidity' && value > 40) return 'text-yellow-400';
     if (metricName === 'Tank Level' && value < 30) return 'text-red-400';
     
     return 'text-green-400';
+  };
+
+  // Helper to format event value based on metric type
+  const formatEventValue = (event: BlockchainEvent): string => {
+    const metricName = getMetricName(event);
+    
+    if (metricName === 'Collection Confirmed') {
+      return 'Collection completed';
+    }
+    
+    if (metricName === 'Door Open Alert') {
+      return 'Door opened';
+    }
+    
+    return `${event.value.toFixed(1)} ${getMetricUnit(event)}`;
   };
 
   return (
@@ -89,7 +132,7 @@ const Timeline: React.FC<TimelineProps> = ({ events }) => {
               </p>
               <p className="text-white text-sm mt-1">
                 {getMetricName(event)}: <span className={`font-medium ${getValueColorClass(event)}`}>
-                  {event.value.toFixed(1)} {getMetricUnit(event)}
+                  {formatEventValue(event)}
                 </span>
               </p>
               <a

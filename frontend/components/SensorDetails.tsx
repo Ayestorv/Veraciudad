@@ -55,6 +55,12 @@ type Reading = {
   ambientTemperature?: number;
   humidity?: number;
   soilMoisture?: number;
+  
+  // Garbage
+  fillLevel?: number;
+  doorOpen?: boolean;
+  lastCollectionTimestamp?: number;
+  binType?: string;
 };
 
 type SensorDetailsProps = {
@@ -92,8 +98,14 @@ const SensorDetails: React.FC<SensorDetailsProps> = ({
       case 'tank': return 'Storage Tank';
       case 'valve': return 'Control Valve';
       case 'environmental': return 'Environment Monitor';
+      case 'garbage': return 'Garbage Bin Sensor';
       default: return 'Unknown Sensor';
     }
+  };
+
+  // Format date function for collection timestamp
+  const formatDate = (timestamp: number): string => {
+    return new Date(timestamp).toLocaleString();
   };
 
   // Dynamic sensor status info based on type and readings
@@ -243,6 +255,45 @@ const SensorDetails: React.FC<SensorDetailsProps> = ({
               <div className="text-gray-400 text-sm">Battery</div>
               <div className="text-2xl font-semibold">
                 {latestReading.batteryLevel?.toFixed(0) || 'N/A'} <span className="text-sm">%</span>
+              </div>
+            </div>
+          </div>
+        );
+      case 'garbage':
+        return (
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            <div className="space-y-2">
+              <div className="text-gray-400 text-sm">Fill Level</div>
+              <div className="text-2xl font-semibold">
+                {latestReading.fillLevel?.toFixed(0) || 'N/A'} <span className="text-sm">%</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-gray-400 text-sm">Door Status</div>
+              <div className="text-2xl font-semibold">
+                {latestReading.doorOpen ? 
+                  <span className="text-yellow-500">Open</span> : 
+                  <span className="text-green-500">Closed</span>}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-gray-400 text-sm">Last Collection</div>
+              <div className="text-lg font-semibold">
+                {latestReading.lastCollectionTimestamp ? 
+                  formatDate(latestReading.lastCollectionTimestamp) : 
+                  'Not recorded'}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-gray-400 text-sm">Battery</div>
+              <div className="text-2xl font-semibold">
+                {latestReading.batteryLevel?.toFixed(0) || 'N/A'} <span className="text-sm">%</span>
+              </div>
+            </div>
+            <div className="col-span-2 space-y-2">
+              <div className="text-gray-400 text-sm">Bin Type</div>
+              <div className="text-lg font-semibold capitalize">
+                {latestReading.binType?.replace('-', ' ') || 'General Waste'}
               </div>
             </div>
           </div>

@@ -13,9 +13,9 @@ import { ethers } from 'ethers';
 import SensorMap from '../../components/SensorMap';
 import MetricsChart from '../../components/MetricsChart';
 import SensorDetails from '../../components/SensorDetails';
-import Timeline from '../../components/Timeline';
 import GlassCard from '../../components/GlassCard';
-import { SENSOR_IDS, generateDummyReadings, PANAMA_CITY_SENSORS, generateDummyEvents } from '../../utils/dummyData';
+import GarbageTimeline from '../../components/garbage/GarbageTimeline';
+import { BIN_IDS, GARBAGE_BINS, BIN_NETWORK_CONNECTIONS, generateDummyReadings, generateDummyEvents } from '../../utils/garbageDummyData';
 
 // Register ChartJS components
 ChartJS.register(
@@ -40,29 +40,44 @@ type Reading = {
   sensorId: string;
   timestamp: number;
   sensorType: string;
+  fillLevel?: number;             // 0–100%
+  doorOpen?: boolean;             // true if bin lid open
+  lastCollectionTimestamp?: number;
+  batteryLevel?: number;
+  binType?: string;
+  latitude?: number;
+  longitude?: number;
+  txHash?: string;
   [key: string]: any; // Allow for any other properties
 };
 
 // Event type for blockchain timeline
 type BlockchainEvent = {
+  id?: string;          // Added to match GarbageBlockchainEvent
   sensorId: string;
   value: number;
   timestamp: number;
   txHash: string;
   metricType?: string;
+  eventType?: string;   // Added to match GarbageBlockchainEvent
+  userId?: string;      // Added to match GarbageBlockchainEvent
+  bagId?: string;       // Added to match GarbageBlockchainEvent
+  correct?: boolean;    // Added to match GarbageBlockchainEvent
+  pointsAwarded?: number; // Added to match GarbageBlockchainEvent
+  fineAmount?: number;  // Added to match GarbageBlockchainEvent
 };
 
 // Mock contract settings
 const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000"; // Dummy address
 const CONTRACT_ABI = [
-  'event ReadingRecorded(bytes32 indexed sensorId, uint256 value, uint256 ts)',
+  'event GarbageEvent(string indexed sensorId, uint256 timestamp, uint8 fillLevel, string eventType, bytes32 dataHash)',
 ];
 
-const TestDashboard = () => {
+const GarbageDashboard = () => {
   // Basic state management
   const [readings, setReadings] = useState<Record<string, Reading[]>>({});
-  const [sensors, setSensors] = useState<string[]>([]);
-  const [selectedSensor, setSelectedSensor] = useState<string | null>(null);
+  const [bins, setBins] = useState<string[]>([]);
+  const [selectedBin, setSelectedBin] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [eventsMap, setEventsMap] = useState<Record<string, BlockchainEvent[]>>({});
   const [activeMetricTab, setActiveMetricTab] = useState<string>('primary');
@@ -71,26 +86,26 @@ const TestDashboard = () => {
   const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
   const [contract, setContract] = useState<ethers.Contract | null>(null);
   
-  // State for sensor details view
+  // State for bin details view
   const [showModal, setShowModal] = useState<boolean>(false);
-  const [viewingSensorId, setViewingSensorId] = useState<string | null>(null);
+  const [viewingBinId, setViewingBinId] = useState<string | null>(null);
   
   // References to prevent state loss during re-renders
-  const selectedSensorRef = useRef<string | null>(null);
+  const selectedBinRef = useRef<string | null>(null);
   const activeMetricTabRef = useRef<string>('primary');
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
   
-  // Create a stable callback for sensor selection
-  const handleSensorSelect = useCallback((sensorId: string) => {
-    console.log('User selected sensor:', sensorId);
-    setSelectedSensor(sensorId);
-    selectedSensorRef.current = sensorId;
+  // Create a stable callback for bin selection
+  const handleBinSelect = useCallback((binId: string) => {
+    console.log('User selected bin:', binId);
+    setSelectedBin(binId);
+    selectedBinRef.current = binId;
   }, []);
   
   // Handle view details click
-  const handleViewDetails = useCallback((sensorId: string) => {
-    console.log('View details for sensor:', sensorId);
-    setViewingSensorId(sensorId);
+  const handleViewDetails = useCallback((binId: string) => {
+    console.log('View details for bin:', binId);
+    setViewingBinId(binId);
     setShowModal(true);
   }, []);
   
@@ -125,20 +140,20 @@ const TestDashboard = () => {
           setContract(contract);
           
           // Listen for events
-          contract.on('ReadingRecorded', (sensorId, value, ts, event) => {
-            const decodedSensorId = ethers.decodeBytes32String(sensorId);
+          contract.on('GarbageEvent', (sensorId, timestamp, fillLevel, eventType, dataHash, event) => {
             const newEvent: BlockchainEvent = {
-              sensorId: decodedSensorId,
-              value: Number(value),
-              timestamp: Number(ts),
+              sensorId: sensorId,
+              value: Number(fillLevel),
+              timestamp: Number(timestamp),
               txHash: event.transactionHash,
+              metricType: eventType
             };
             
             setEventsMap(prev => {
-              const list = prev[decodedSensorId] || [];
+              const list = prev[sensorId] || [];
               return {
                 ...prev,
-                [decodedSensorId]: [newEvent, ...list]
+                [sensorId]: [newEvent, ...list]
               };
             });
           });
@@ -186,7 +201,46 @@ const TestDashboard = () => {
             const exists = updatedEventsMap[sensorId].some(e => e.txHash === event.txHash);
             if (!exists) {
               // Add new event to this sensor's list
-              updatedEventsMap[sensorId] = [event, ...updatedEventsMap[sensorId]];
+              // Convert to new event format while adding
+              const adaptedEvent: BlockchainEvent = {
+                ...event,
+                id: `event-${event.timestamp}-${Math.random().toString(36).substring(2, 9)}`,
+                eventType: event.metricType || 'measurement',
+                // Map common metricTypes to eventTypes
+                ...(event.metricType === 'correctDisposal' && { 
+                  eventType: 'disposal',
+                  correct: true 
+                }),
+                ...(event.metricType === 'misuseAlert' && { 
+                  eventType: 'disposal',
+                  correct: false 
+                }),
+                ...(event.metricType === 'rewardIssued' && { 
+                  eventType: 'reward',
+                  pointsAwarded: event.points || Math.floor(Math.random() * 5) + 1
+                }),
+                ...(event.metricType === 'fineIssued' && { 
+                  eventType: 'fine',
+                  fineAmount: event.amount || (Math.floor(Math.random() * 4) + 1) * 5
+                }),
+                ...(event.metricType === 'fillLevelAlert' && { 
+                  eventType: 'fillLevelAlert' 
+                }),
+                ...(event.metricType === 'collectionConfirmed' && { 
+                  eventType: 'collectionConfirmed' 
+                }),
+                ...(event.metricType === 'doorOpenAlert' && { 
+                  eventType: 'doorOpenAlert' 
+                }),
+                ...(event.metricType === 'batteryLow' && { 
+                  eventType: 'batteryLow' 
+                }),
+                ...(event.metricType === 'bagIssued' && { 
+                  eventType: 'bag-issuance'
+                }),
+              };
+              
+              updatedEventsMap[sensorId] = [adaptedEvent, ...updatedEventsMap[sensorId]];
             }
           });
           
@@ -218,12 +272,12 @@ const TestDashboard = () => {
     const fetchInitialData = async () => {
       try {
         await fetchReadings();
-        setSensors(SENSOR_IDS);
+        setBins(BIN_IDS);
         
-        // Select first sensor by default
-        if (SENSOR_IDS.length > 0) {
-          setSelectedSensor(SENSOR_IDS[0]);
-          selectedSensorRef.current = SENSOR_IDS[0];
+        // Select first bin by default
+        if (BIN_IDS.length > 0) {
+          setSelectedBin(BIN_IDS[0]);
+          selectedBinRef.current = BIN_IDS[0];
         }
         
         // Try to connect to wallet
@@ -255,38 +309,38 @@ const TestDashboard = () => {
     };
   }, []);
 
-  // Update events when viewing sensor changes
+  // Update events when viewing bin changes
   useEffect(() => {
     // Always fetch readings when the modal is closed to ensure we keep accumulating events
-    if (!viewingSensorId) {
+    if (!viewingBinId) {
       fetchReadings();
     }
-  }, [viewingSensorId]);
+  }, [viewingBinId]);
 
-  // Get the selected sensor info
-  const getSelectedSensorPosition = () => {
-    if (!selectedSensor) return null;
-    const sensorInfo = PANAMA_CITY_SENSORS.find(s => s.id === selectedSensor);
-    return sensorInfo ? { lat: sensorInfo.lat, lng: sensorInfo.lng } : null;
+  // Get the selected bin info
+  const getSelectedBinPosition = () => {
+    if (!selectedBin) return null;
+    const binInfo = GARBAGE_BINS.find(s => s.id === selectedBin);
+    return binInfo ? { lat: binInfo.lat, lng: binInfo.lng } : null;
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900/20 to-slate-800 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-green-900/20 to-slate-800 text-white">
       {/* Main content with map */}
       <div className="relative">
         {/* Full-screen map container - absolute but lower z-index */}
         <div className="absolute inset-0 z-0">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-400"></div>
             </div>
           ) : (
             <div className="h-full pt-16">
               <SensorMap
-                sensors={sensors}
+                sensors={bins}
                 readings={readings}
-                selectedSensor={selectedSensor}
-                onSensorSelect={handleSensorSelect}
+                selectedSensor={selectedBin}
+                onSensorSelect={handleBinSelect}
               />
             </div>
           )}
@@ -296,19 +350,29 @@ const TestDashboard = () => {
         <div className="relative z-10 bg-slate-900/80 backdrop-blur-sm p-4 flex justify-between items-center">
           <div className="flex items-center">
             <div className="mr-3">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 text-blue-400">
-                <path d="M11.7 2.805a.75.75 0 01.6 0A60.65 60.65 0 0122.83 8.72a.75.75 0 01-.231 1.337 49.949 49.949 0 00-9.902 3.912l-.003.002-.34.18a.75.75 0 01-.707 0A50.009 50.009 0 007.5 12.174v-.224c0-.131.067-.248.172-.311a54.614 54.614 0 014.653-2.52.75.75 0 00-.65-1.352 56.129 56.129 0 00-4.78 2.589 1.858 1.858 0 00-.859 1.228 49.803 49.803 0 00-4.634-1.527.75.75 0 01-.231-1.337A60.653 60.653 0 0111.7 2.805z" />
-                <path d="M13.06 15.473a48.45 48.45 0f 017.666-3.282c.134 1.414.22 2.843.255 4.285a.75.75 0 01-.46.71 47.878 47.878 0 00-8.105 4.342.75.75 0 01-.832 0 47.877 47.877 0 00-8.104-4.342.75.75 0 01-.461-.71c.035-1.442.121-2.87.255-4.286A48.4 48.4 0 016 13.18v1.27a1.5 1.5 0 00-.14 2.508c-.09.38-.222.753-.397 1.11.452.213.901.434 1.346.661a6.729 6.729 0 00.551-1.608 1.5 1.5 0 00.14-2.67v-.645a48.549 48.549 0 013.44 1.668 2.25 2.25 0 002.12 0z" />
-                <path d="M4.462 19.462c.42-.419.753-.89 1-1.394.453.213.902.434 1.347.661a6.743 6.743 0 01-1.286 1.794.75.75 0 11-1.06-1.06z" />
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 text-green-400">
+                <path d="M3.375 3C2.339 3 1.5 3.84 1.5 4.875v.75c0 1.036.84 1.875 1.875 1.875h17.25c1.035 0 1.875-.84 1.875-1.875v-.75C22.5 3.839 21.66 3 20.625 3H3.375z" />
+                <path fillRule="evenodd" d="M3.087 9l.54 9.176A3 3 0 006.62 21h10.757a3 3 0 002.995-2.824L20.913 9H3.087zm6.133 2.845a.75.75 0 011.06 0l1.72 1.72 1.72-1.72a.75.75 0 111.06 1.06l-1.72 1.72 1.72 1.72a.75.75 0 11-1.06 1.06L12 15.685l-1.72 1.72a.75.75 0 11-1.06-1.06l1.72-1.72-1.72-1.72a.75.75 0 010-1.06z" clipRule="evenodd" />
               </svg>
             </div>
-            <h1 className="text-xl font-bold text-white">Water Quality Monitor</h1>
+            <h1 className="text-xl font-bold text-white">Garbage Collection Monitor</h1>
             <div className="ml-4 text-sm text-slate-400">
               Last updated: {lastUpdated.toLocaleTimeString()}
             </div>
           </div>
           
           <div className="flex items-center space-x-3">
+            {/* Navigation to Garbage Management */}
+            <a 
+              href="/garbage-management" 
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg shadow-lg flex items-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+              Garbage Management
+            </a>
+            
             {/* Wallet connection button */}
             {!isWalletConnected ? (
               <button
@@ -329,11 +393,11 @@ const TestDashboard = () => {
               </div>
             )}
             
-            {/* View Details Button - appears when a sensor is selected */}
-            {selectedSensor && (
+            {/* View Details Button - appears when a bin is selected */}
+            {selectedBin && (
               <button
-                onClick={() => handleViewDetails(selectedSensor)}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg shadow-lg flex items-center"
+                onClick={() => handleViewDetails(selectedBin)}
+                className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg shadow-lg flex items-center"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
@@ -349,13 +413,13 @@ const TestDashboard = () => {
         <div className="h-screen w-full pointer-events-none" aria-hidden="true"></div>
       </div>
       
-      {/* Modal with sensor details, metrics and timeline */}
-      {showModal && viewingSensorId && (
+      {/* Modal with bin details, metrics and timeline */}
+      {showModal && viewingBinId && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-slate-800 rounded-xl shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
             {/* Modal header */}
             <div className="p-6 border-b border-slate-700 flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Sensor Details: {viewingSensorId}</h2>
+              <h2 className="text-xl font-semibold">Bin Details: {viewingBinId}</h2>
               <button 
                 onClick={handleCloseModal}
                 className="p-2 hover:bg-slate-700 rounded-full text-slate-400 hover:text-white"
@@ -374,7 +438,7 @@ const TestDashboard = () => {
                   <GlassCard>
                     <div className="h-[450px]">
                       <MetricsChart 
-                        selectedSensor={viewingSensorId}
+                        selectedSensor={viewingBinId}
                         readings={readings}
                         activeMetricTab={activeMetricTab}
                         setActiveMetricTab={setActiveMetricTab}
@@ -383,17 +447,17 @@ const TestDashboard = () => {
                   </GlassCard>
                 </div>
                 
-                {/* Second row - Sensor details and Blockchain events side by side */}
+                {/* Second row - Bin details and Blockchain events side by side */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                  {/* Left column - Sensor details */}
+                  {/* Left column - Bin details */}
                   <div className="h-80">
-                    <GlassCard>
+                    <GlassCard className="h-full">
                       <div className="h-full overflow-y-auto">
                         <SensorDetails
-                          selectedSensor={viewingSensorId}
-                          sensors={sensors}
+                          selectedSensor={viewingBinId}
+                          sensors={bins}
                           readings={readings}
-                          onSensorSelect={handleSensorSelect}
+                          onSensorSelect={handleBinSelect}
                         />
                       </div>
                     </GlassCard>
@@ -401,16 +465,31 @@ const TestDashboard = () => {
                   
                   {/* Right column - Blockchain events */}
                   <div className="h-80">
-                    <GlassCard>
-                      <div className="h-full flex flex-col">
+                    <GlassCard className="h-full">
+                      <div className="flex flex-col h-full">
                         <h2 className="text-lg font-semibold mb-3">
                           Blockchain Events
-                          <span className="ml-2 bg-blue-500/20 text-blue-300 text-sm py-0.5 px-2 rounded-full">
-                            {(eventsMap[viewingSensorId] || []).length}
+                          <span className="ml-2 bg-green-500/20 text-green-300 text-sm py-0.5 px-2 rounded-full">
+                            {(eventsMap[viewingBinId] || []).length}
                           </span>
                         </h2>
-                        <div className="flex-1 overflow-hidden">
-                          <Timeline events={eventsMap[viewingSensorId] || []} />
+                        <div className="flex-1 min-h-0">
+                          <GarbageTimeline events={
+                            // Convert the events to the format expected by GarbageTimeline
+                            (eventsMap[viewingBinId] || []).map(event => ({
+                              id: event.id || `event-${event.timestamp}-${Math.random().toString(36).substring(2, 9)}`,
+                              timestamp: event.timestamp,
+                              txHash: event.txHash,
+                              eventType: event.eventType || event.metricType || 'measurement',
+                              sensorId: event.sensorId,
+                              value: event.value,
+                              userId: event.userId,
+                              bagId: event.bagId,
+                              correct: event.correct,
+                              pointsAwarded: event.pointsAwarded,
+                              fineAmount: event.fineAmount
+                            }))
+                          } />
                         </div>
                       </div>
                     </GlassCard>
@@ -425,4 +504,4 @@ const TestDashboard = () => {
   );
 };
 
-export default TestDashboard;
+export default GarbageDashboard; 
