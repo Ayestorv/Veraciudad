@@ -1,121 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { USERS, BLOCKCHAIN_EVENTS } from '../../utils/garbageDummyData';
+import { 
+  getUsers, 
+  getBlockchainEvents,
+  type User,
+  type BlockchainEvent
+} from '../../utils/garbageLocalStorage';
 import GlassCard from '../GlassCard';
-
-type User = {
-  id: string;
-  name: string;
-  address: string;
-  walletAddress: string;
-  pointsBalance: number;
-  finesBalance: number;
-  onboardedAt: number;
-};
-
-type BlockchainEvent = {
-  id: string;
-  timestamp: number;
-  txHash: string;
-  eventType: string;
-  userId?: string;
-  bagId?: string;
-  sensorId?: string;
-  amount?: number;
-  correct?: boolean;
-  pointsAwarded?: number;
-  fineAmount?: number;
-};
 
 const PointsDashboard: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [events, setEvents] = useState<BlockchainEvent[]>([]);
-  const [selectedUser, setSelectedUser] = useState<string>('all');
-  const [filteredEvents, setFilteredEvents] = useState<BlockchainEvent[]>([]);
-  const [eventTypeFilter, setEventTypeFilter] = useState<string>('all');
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [usersPerPage] = useState<number>(20);
   
-  // Load users and events
+  // Load users and events from localStorage or use dummy data
   useEffect(() => {
-    setUsers(USERS);
-    setEvents(BLOCKCHAIN_EVENTS);
+    const persistedUsers = getUsers(USERS);
+    const persistedEvents = getBlockchainEvents(BLOCKCHAIN_EVENTS);
+    
+    setUsers(persistedUsers);
+    setEvents(persistedEvents);
   }, []);
-  
-  // Filter events based on selected user and event type
-  useEffect(() => {
-    let filtered = [...events];
-    
-    // Filter by user
-    if (selectedUser !== 'all') {
-      filtered = filtered.filter(event => event.userId === selectedUser);
-    }
-    
-    // Filter by event type
-    if (eventTypeFilter !== 'all') {
-      filtered = filtered.filter(event => event.eventType === eventTypeFilter);
-    }
-    
-    // Sort by timestamp descending (newest first)
-    filtered.sort((a, b) => b.timestamp - a.timestamp);
-    
-    setFilteredEvents(filtered);
-  }, [events, selectedUser, eventTypeFilter]);
-  
-  // Get event icon
-  const getEventIcon = (eventType: string): string => {
-    switch (eventType) {
-      case 'user-registration':
-        return '👤';
-      case 'bag-issuance':
-        return '🛍️';
-      case 'disposal':
-        return '🗑️';
-      case 'reward':
-        return '🏆';
-      case 'fine':
-        return '💸';
-      default:
-        return '📝';
-    }
-  };
-  
-  // Format timestamp
-  const formatDate = (timestamp: number): string => {
-    return new Date(timestamp).toLocaleString();
-  };
-  
-  // Format currency
-  const formatCurrency = (amount: number): string => {
-    return `$${amount.toFixed(2)}`;
-  };
-  
-  // Get user name by ID
-  const getUserName = (userId: string): string => {
-    const user = users.find(u => u.id === userId);
-    return user ? user.name : 'Unknown User';
-  };
-  
-  // Get event description
-  const getEventDescription = (event: BlockchainEvent): string => {
-    const userName = event.userId ? getUserName(event.userId) : 'Unknown User';
-    
-    switch (event.eventType) {
-      case 'user-registration':
-        return `${userName} registered`;
-      case 'bag-issuance':
-        return `${userName} was issued a new bag`;
-      case 'disposal':
-        if (event.correct) {
-          return `${userName} correctly disposed waste`;
-        } else {
-          return `${userName} incorrectly disposed waste`;
-        }
-      case 'reward':
-        return `${userName} earned ${event.pointsAwarded} points`;
-      case 'fine':
-        return `${userName} was fined ${formatCurrency(event.fineAmount || 0)}`;
-      default:
-        return 'Unknown event';
-    }
-  };
   
   // Calculate total stats
   const getTotalStats = () => {
@@ -142,6 +49,96 @@ const PointsDashboard: React.FC = () => {
     });
     
     return stats;
+  };
+  
+  // Pagination logic
+  const indexOfLastUser = currentPage * usersPerPage;
+  const indexOfFirstUser = indexOfLastUser - usersPerPage;
+  const currentUsers = users.slice(indexOfFirstUser, indexOfLastUser);
+  const totalPages = Math.ceil(users.length / usersPerPage);
+  
+  // Change page handler
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+  };
+  
+  // Render pagination controls
+  const renderPaginationControls = () => {
+    const pageNumbers = [];
+    
+    // Show at most 5 page numbers (current, 2 before, 2 after, if available)
+    const startPage = Math.max(1, currentPage - 2);
+    const endPage = Math.min(totalPages, startPage + 4);
+    
+    for (let i = startPage; i <= endPage; i++) {
+      pageNumbers.push(i);
+    }
+    
+    return (
+      <div className="flex justify-center mt-4 space-x-2">
+        <button
+          onClick={() => handlePageChange(1)}
+          disabled={currentPage === 1}
+          className={`px-2 py-1 text-sm rounded ${
+            currentPage === 1 
+              ? 'bg-slate-700 text-gray-400 cursor-not-allowed' 
+              : 'bg-slate-700 hover:bg-slate-600 text-white'
+          }`}
+        >
+          &laquo;
+        </button>
+        
+        <button
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className={`px-2 py-1 text-sm rounded ${
+            currentPage === 1 
+              ? 'bg-slate-700 text-gray-400 cursor-not-allowed' 
+              : 'bg-slate-700 hover:bg-slate-600 text-white'
+          }`}
+        >
+          &lsaquo;
+        </button>
+        
+        {pageNumbers.map(number => (
+          <button
+            key={number}
+            onClick={() => handlePageChange(number)}
+            className={`px-3 py-1 text-sm rounded ${
+              currentPage === number 
+                ? 'bg-green-600 text-white' 
+                : 'bg-slate-700 hover:bg-slate-600 text-white'
+            }`}
+          >
+            {number}
+          </button>
+        ))}
+        
+        <button
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className={`px-2 py-1 text-sm rounded ${
+            currentPage === totalPages 
+              ? 'bg-slate-700 text-gray-400 cursor-not-allowed' 
+              : 'bg-slate-700 hover:bg-slate-600 text-white'
+          }`}
+        >
+          &rsaquo;
+        </button>
+        
+        <button
+          onClick={() => handlePageChange(totalPages)}
+          disabled={currentPage === totalPages}
+          className={`px-2 py-1 text-sm rounded ${
+            currentPage === totalPages 
+              ? 'bg-slate-700 text-gray-400 cursor-not-allowed' 
+              : 'bg-slate-700 hover:bg-slate-600 text-white'
+          }`}
+        >
+          &raquo;
+        </button>
+      </div>
+    );
   };
   
   const stats = getTotalStats();
@@ -182,7 +179,7 @@ const PointsDashboard: React.FC = () => {
         </div>
         
         {/* User Table */}
-        <div className="w-full overflow-x-auto mb-5">
+        <div className="w-full overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-800 text-gray-300">
@@ -193,11 +190,10 @@ const PointsDashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {users.map(user => (
+              {currentUsers.map(user => (
                 <tr 
                   key={user.id} 
                   className="border-b border-gray-700 hover:bg-slate-800 cursor-pointer"
-                  onClick={() => setSelectedUser(user.id === selectedUser ? 'all' : user.id)}
                 >
                   <td className="px-4 py-2">
                     <div className="font-medium">{user.name}</div>
@@ -224,90 +220,19 @@ const PointsDashboard: React.FC = () => {
             </tbody>
           </table>
         </div>
-      </GlassCard>
-      
-      {/* Blockchain Events Timeline */}
-      <GlassCard>
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Blockchain Timeline</h2>
-          
-          <div className="flex gap-2">
-            <select
-              value={selectedUser}
-              onChange={(e) => setSelectedUser(e.target.value)}
-              className="bg-slate-800 border border-slate-700 rounded-md p-1 text-sm text-white"
-            >
-              <option value="all">All Users</option>
-              {users.map(user => (
-                <option key={user.id} value={user.id}>{user.name}</option>
-              ))}
-            </select>
-            
-            <select
-              value={eventTypeFilter}
-              onChange={(e) => setEventTypeFilter(e.target.value)}
-              className="bg-slate-800 border border-slate-700 rounded-md p-1 text-sm text-white"
-            >
-              <option value="all">All Events</option>
-              <option value="user-registration">User Registration</option>
-              <option value="bag-issuance">Bag Issuance</option>
-              <option value="disposal">Disposal</option>
-              <option value="reward">Rewards</option>
-              <option value="fine">Fines</option>
-            </select>
-          </div>
-        </div>
         
-        {filteredEvents.length === 0 ? (
-          <div className="p-4 text-center text-gray-400">
-            No events to display
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filteredEvents.map(event => (
-              <div key={event.id} className="p-3 bg-slate-800 rounded-md">
-                <div className="flex">
-                  <div className="mr-3 text-2xl">{getEventIcon(event.eventType)}</div>
-                  <div className="flex-1">
-                    <div className="font-medium">{getEventDescription(event)}</div>
-                    <div className="text-xs text-gray-400">{formatDate(event.timestamp)}</div>
-                    <div className="flex mt-1">
-                      {event.eventType === 'disposal' && (
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          event.correct
-                            ? 'bg-green-500/20 text-green-300'
-                            : 'bg-red-500/20 text-red-300'
-                        }`}>
-                          {event.correct ? 'Correct' : 'Incorrect'} Disposal
-                        </span>
-                      )}
-                      {event.eventType === 'reward' && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300">
-                          +{event.pointsAwarded} Points
-                        </span>
-                      )}
-                      {event.eventType === 'fine' && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-300">
-                          ${event.fineAmount} Fine
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <a 
-                      href={`https://etherscan.io/tx/${event.txHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer" 
-                      className="text-xs text-blue-400 hover:underline"
-                    >
-                      View Transaction ↗
-                    </a>
-                  </div>
-                </div>
-              </div>
-            ))}
+        {users.length > 0 && (
+          <div className="mt-4 text-center text-sm text-gray-400">
+            Showing {indexOfFirstUser + 1}-{Math.min(indexOfLastUser, users.length)} of {users.length} users
           </div>
         )}
+        
+        {users.length > usersPerPage && renderPaginationControls()}
+        
+        <div className="mt-6 text-center text-gray-400 text-sm">
+          <p>The blockchain timeline has been moved to the Blockchain Registry tab.</p>
+          <p>Please check there for all detailed transaction history.</p>
+        </div>
       </GlassCard>
     </div>
   );

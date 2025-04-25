@@ -1,24 +1,35 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { type BlockchainEvent } from '../../utils/garbageLocalStorage';
 
-type GarbageBlockchainEvent = {
-  id: string;
-  timestamp: number;
-  txHash: string;
-  eventType: string;
-  userId?: string;
-  bagId?: string;
-  sensorId?: string;
-  amount?: number;
-  correct?: boolean;
-  pointsAwarded?: number;
-  fineAmount?: number;
-};
+// Remove type definition since we're importing it
+// type GarbageBlockchainEvent = {
+//   id: string;
+//   timestamp: number;
+//   txHash: string;
+//   eventType: string;
+//   userId?: string;
+//   bagId?: string;
+//   sensorId?: string;
+//   amount?: number;
+//   correct?: boolean;
+//   pointsAwarded?: number;
+//   fineAmount?: number;
+// };
 
 type GarbageTimelineProps = {
-  events: GarbageBlockchainEvent[];
+  events: BlockchainEvent[];
 };
 
 const GarbageTimeline: React.FC<GarbageTimelineProps> = ({ events }) => {
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [eventsPerPage] = useState<number>(5);
+  
+  // Reset to page 1 when events change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [events]);
+  
   if (events.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-gray-300">
@@ -27,6 +38,17 @@ const GarbageTimeline: React.FC<GarbageTimelineProps> = ({ events }) => {
       </div>
     );
   }
+
+  // Pagination logic
+  const indexOfLastEvent = currentPage * eventsPerPage;
+  const indexOfFirstEvent = indexOfLastEvent - eventsPerPage;
+  const currentEvents = events.slice(indexOfFirstEvent, indexOfLastEvent);
+  const totalPages = Math.ceil(events.length / eventsPerPage);
+  
+  // Change page handler
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+  };
 
   // Get event icon
   const getEventIcon = (eventType: string): string => {
@@ -55,7 +77,7 @@ const GarbageTimeline: React.FC<GarbageTimelineProps> = ({ events }) => {
   };
   
   // Helper to get color class for the event
-  const getEventColorClass = (event: GarbageBlockchainEvent): string => {
+  const getEventColorClass = (event: BlockchainEvent): string => {
     switch (event.eventType) {
       case 'disposal':
         return event.correct ? 'text-green-400' : 'text-red-400';
@@ -77,7 +99,7 @@ const GarbageTimeline: React.FC<GarbageTimelineProps> = ({ events }) => {
   };
 
   // Helper to format event description
-  const getEventDescription = (event: GarbageBlockchainEvent): string => {
+  const getEventDescription = (event: BlockchainEvent): string => {
     switch (event.eventType) {
       case 'user-registration':
         return `User registered`;
@@ -101,11 +123,90 @@ const GarbageTimeline: React.FC<GarbageTimelineProps> = ({ events }) => {
         return event.eventType;
     }
   };
+  
+  // Render pagination controls
+  const renderPaginationControls = () => {
+    const pageNumbers = [];
+    
+    // Show at most 5 page numbers (current, 2 before, 2 after, if available)
+    const startPage = Math.max(1, currentPage - 2);
+    const endPage = Math.min(totalPages, startPage + 4);
+    
+    for (let i = startPage; i <= endPage; i++) {
+      pageNumbers.push(i);
+    }
+    
+    return (
+      <div className="flex justify-center mt-6 space-x-2">
+        <button
+          onClick={() => handlePageChange(1)}
+          disabled={currentPage === 1}
+          className={`px-2 py-1 text-sm rounded ${
+            currentPage === 1 
+              ? 'bg-slate-700 text-gray-400 cursor-not-allowed' 
+              : 'bg-slate-700 hover:bg-slate-600 text-white'
+          }`}
+        >
+          &laquo;
+        </button>
+        
+        <button
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className={`px-2 py-1 text-sm rounded ${
+            currentPage === 1 
+              ? 'bg-slate-700 text-gray-400 cursor-not-allowed' 
+              : 'bg-slate-700 hover:bg-slate-600 text-white'
+          }`}
+        >
+          &lsaquo;
+        </button>
+        
+        {pageNumbers.map(number => (
+          <button
+            key={number}
+            onClick={() => handlePageChange(number)}
+            className={`px-3 py-1 text-sm rounded ${
+              currentPage === number 
+                ? 'bg-green-600 text-white' 
+                : 'bg-slate-700 hover:bg-slate-600 text-white'
+            }`}
+          >
+            {number}
+          </button>
+        ))}
+        
+        <button
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className={`px-2 py-1 text-sm rounded ${
+            currentPage === totalPages 
+              ? 'bg-slate-700 text-gray-400 cursor-not-allowed' 
+              : 'bg-slate-700 hover:bg-slate-600 text-white'
+          }`}
+        >
+          &rsaquo;
+        </button>
+        
+        <button
+          onClick={() => handlePageChange(totalPages)}
+          disabled={currentPage === totalPages}
+          className={`px-2 py-1 text-sm rounded ${
+            currentPage === totalPages 
+              ? 'bg-slate-700 text-gray-400 cursor-not-allowed' 
+              : 'bg-slate-700 hover:bg-slate-600 text-white'
+          }`}
+        >
+          &raquo;
+        </button>
+      </div>
+    );
+  };
 
   return (
     <div className="h-full overflow-auto pr-2">
       <div className="space-y-4">
-        {events.map((event, index) => (
+        {currentEvents.map((event, index) => (
           <div 
             key={`${event.txHash}-${index}`}
             className="relative pl-6 border-l border-green-500/50"
@@ -157,6 +258,15 @@ const GarbageTimeline: React.FC<GarbageTimelineProps> = ({ events }) => {
           </div>
         ))}
       </div>
+      
+      {events.length > eventsPerPage && (
+        <>
+          <div className="mt-4 text-center text-sm text-gray-400">
+            Showing {indexOfFirstEvent + 1}-{Math.min(indexOfLastEvent, events.length)} of {events.length} events
+          </div>
+          {renderPaginationControls()}
+        </>
+      )}
     </div>
   );
 };

@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { USERS, blockchainAdapter } from '../../utils/garbageDummyData';
+import { 
+  getUsers, 
+  saveUsers, 
+  addBlockchainEvent, 
+  getBlockchainEvents, 
+  saveBlockchainEvents,
+  type User,
+  type BlockchainEvent
+} from '../../utils/garbageLocalStorage';
 import GlassCard from '../GlassCard';
-
-type User = {
-  id: string;
-  name: string;
-  address: string;
-  walletAddress: string;
-  pointsBalance: number;
-  finesBalance: number;
-  onboardedAt: number;
-};
 
 const UserOnboarding: React.FC = () => {
   // State for form inputs
@@ -21,10 +20,14 @@ const UserOnboarding: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [usersPerPage] = useState<number>(5);
   
-  // Load users on component mount
+  // Load users from localStorage or initialize with dummy data on component mount
   useEffect(() => {
-    setUsers([...USERS]);
+    const persistedUsers = getUsers(USERS);
+    setUsers(persistedUsers);
   }, []);
   
   // Generate a random wallet address
@@ -58,8 +61,24 @@ const UserOnboarding: React.FC = () => {
         finesBalance: 0
       });
       
-      // Update local state
-      setUsers(prevUsers => [newUser, ...prevUsers]);
+      // Update local state with the new user
+      const updatedUsers = [newUser, ...users];
+      setUsers(updatedUsers);
+      
+      // Persist to localStorage
+      saveUsers(updatedUsers);
+      
+      // Add user registration event to blockchain events
+      const events = getBlockchainEvents([]);
+      const registrationEvent = {
+        id: `event-${events.length + 1}`,
+        timestamp: newUser.onboardedAt,
+        txHash: newUser.txHash,
+        eventType: 'user-registration',
+        userId: newUser.id
+      };
+      
+      saveBlockchainEvents([registrationEvent, ...events]);
       
       // Reset form
       setName('');
@@ -73,12 +92,105 @@ const UserOnboarding: React.FC = () => {
       setTimeout(() => {
         setSuccessMessage('');
       }, 5000);
+      
+      // Set to first page to see the new user
+      setCurrentPage(1);
     } catch (error) {
       console.error('Error registering user:', error);
       setErrorMessage(error.message || 'Failed to register user');
     } finally {
       setIsSubmitting(false);
     }
+  };
+  
+  // Pagination logic
+  const indexOfLastUser = currentPage * usersPerPage;
+  const indexOfFirstUser = indexOfLastUser - usersPerPage;
+  const currentUsers = users.slice(indexOfFirstUser, indexOfLastUser);
+  const totalPages = Math.ceil(users.length / usersPerPage);
+  
+  // Change page handler
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+  };
+  
+  // Render pagination controls
+  const renderPaginationControls = () => {
+    const pageNumbers = [];
+    
+    // Show at most 5 page numbers (current, 2 before, 2 after, if available)
+    const startPage = Math.max(1, currentPage - 2);
+    const endPage = Math.min(totalPages, startPage + 4);
+    
+    for (let i = startPage; i <= endPage; i++) {
+      pageNumbers.push(i);
+    }
+    
+    return (
+      <div className="flex justify-center mt-4 space-x-2">
+        <button
+          onClick={() => handlePageChange(1)}
+          disabled={currentPage === 1}
+          className={`px-2 py-1 text-sm rounded ${
+            currentPage === 1 
+              ? 'bg-slate-700 text-gray-400 cursor-not-allowed' 
+              : 'bg-slate-700 hover:bg-slate-600 text-white'
+          }`}
+        >
+          &laquo;
+        </button>
+        
+        <button
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className={`px-2 py-1 text-sm rounded ${
+            currentPage === 1 
+              ? 'bg-slate-700 text-gray-400 cursor-not-allowed' 
+              : 'bg-slate-700 hover:bg-slate-600 text-white'
+          }`}
+        >
+          &lsaquo;
+        </button>
+        
+        {pageNumbers.map(number => (
+          <button
+            key={number}
+            onClick={() => handlePageChange(number)}
+            className={`px-3 py-1 text-sm rounded ${
+              currentPage === number 
+                ? 'bg-green-600 text-white' 
+                : 'bg-slate-700 hover:bg-slate-600 text-white'
+            }`}
+          >
+            {number}
+          </button>
+        ))}
+        
+        <button
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className={`px-2 py-1 text-sm rounded ${
+            currentPage === totalPages 
+              ? 'bg-slate-700 text-gray-400 cursor-not-allowed' 
+              : 'bg-slate-700 hover:bg-slate-600 text-white'
+          }`}
+        >
+          &rsaquo;
+        </button>
+        
+        <button
+          onClick={() => handlePageChange(totalPages)}
+          disabled={currentPage === totalPages}
+          className={`px-2 py-1 text-sm rounded ${
+            currentPage === totalPages 
+              ? 'bg-slate-700 text-gray-400 cursor-not-allowed' 
+              : 'bg-slate-700 hover:bg-slate-600 text-white'
+          }`}
+        >
+          &raquo;
+        </button>
+      </div>
+    );
   };
   
   return (
@@ -202,7 +314,7 @@ const UserOnboarding: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700">
-              {users.slice(0, 10).map((user) => (
+              {currentUsers.map((user) => (
                 <tr key={user.id} className="hover:bg-slate-700/50">
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-white">
                     {user.id}
@@ -231,11 +343,13 @@ const UserOnboarding: React.FC = () => {
           </table>
         </div>
         
-        {users.length > 10 && (
+        {users.length > 0 && (
           <div className="mt-4 text-center text-sm text-gray-400">
-            Showing 10 of {users.length} users
+            Showing {indexOfFirstUser + 1}-{Math.min(indexOfLastUser, users.length)} of {users.length} users
           </div>
         )}
+        
+        {users.length > usersPerPage && renderPaginationControls()}
       </GlassCard>
     </div>
   );

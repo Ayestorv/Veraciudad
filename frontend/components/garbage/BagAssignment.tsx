@@ -1,26 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { USERS, BAGS, blockchainAdapter } from '../../utils/garbageDummyData';
+import { 
+  getUsers, 
+  saveUsers, 
+  getBags, 
+  saveBags, 
+  getBlockchainEvents, 
+  saveBlockchainEvents,
+  type User,
+  type Bag,
+  type BlockchainEvent 
+} from '../../utils/garbageLocalStorage';
 import GlassCard from '../GlassCard';
-
-type User = {
-  id: string;
-  name: string;
-  address: string;
-  walletAddress: string;
-  pointsBalance: number;
-  finesBalance: number;
-  onboardedAt: number;
-};
-
-type Bag = {
-  id: string;
-  userId: string;
-  bagType: string;
-  qrCode: string;
-  rfid: string;
-  issuedAt: number;
-  txHash: string;
-};
 
 const BagAssignment: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -32,10 +23,13 @@ const BagAssignment: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
   
-  // Load users and bags on component mount
+  // Load users and bags from localStorage or initialize with dummy data
   useEffect(() => {
-    setUsers([...USERS]);
-    setBags([...BAGS]);
+    const persistedUsers = getUsers(USERS);
+    const persistedBags = getBags(BAGS);
+    
+    setUsers(persistedUsers);
+    setBags(persistedBags);
   }, []);
   
   // Filter bags when selectedUserId changes
@@ -99,8 +93,25 @@ const BagAssignment: React.FC = () => {
       // Call blockchain adapter to issue bag
       const newBag = blockchainAdapter.issueBag(newBagData);
       
-      // Update local state
-      setBags(prevBags => [newBag, ...prevBags]);
+      // Update local state with the new bag
+      const updatedBags = [newBag, ...bags];
+      setBags(updatedBags);
+      
+      // Persist bags to localStorage
+      saveBags(updatedBags);
+      
+      // Add bag issuance event to blockchain events
+      const events = getBlockchainEvents([]);
+      const bagIssuanceEvent = {
+        id: `event-${events.length + 1}`,
+        timestamp: newBag.issuedAt,
+        txHash: newBag.txHash,
+        eventType: 'bag-issuance',
+        userId: newBag.userId,
+        bagId: newBag.id
+      };
+      
+      saveBlockchainEvents([bagIssuanceEvent, ...events]);
       
       // Update filtered bags
       if (selectedUserId) {
@@ -200,21 +211,22 @@ const BagAssignment: React.FC = () => {
               if (!user) return <p className="text-gray-400">User not found</p>;
               
               return (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <div>
-                    <span className="text-gray-400">Name:</span> {user.name}
+                    <p className="text-sm text-gray-400">Name</p>
+                    <p>{user.name}</p>
                   </div>
                   <div>
-                    <span className="text-gray-400">ID:</span> {user.id}
-                  </div>
-                  <div className="md:col-span-2">
-                    <span className="text-gray-400">Address:</span> {user.address}
+                    <p className="text-sm text-gray-400">ID</p>
+                    <p>{user.id}</p>
                   </div>
                   <div>
-                    <span className="text-gray-400">Points:</span> <span className="text-green-400">{user.pointsBalance} pts</span>
+                    <p className="text-sm text-gray-400">Address</p>
+                    <p className="truncate">{user.address}</p>
                   </div>
                   <div>
-                    <span className="text-gray-400">Fines:</span> <span className="text-red-400">${user.finesBalance}</span>
+                    <p className="text-sm text-gray-400">Wallet</p>
+                    <p className="truncate">{user.walletAddress}</p>
                   </div>
                 </div>
               );
@@ -225,97 +237,75 @@ const BagAssignment: React.FC = () => {
       
       <GlassCard>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">
+          <h2 className="text-xl font-semibold">Assigned Bags</h2>
+          <div className="text-sm text-gray-400">
             {selectedUserId 
-              ? `Bags for ${getUserById(selectedUserId)?.name || selectedUserId}` 
-              : 'All Issued Bags'}
-          </h2>
-          <div className="flex items-center">
-            {selectedUserId && (
-              <button
-                onClick={() => setSelectedUserId('')}
-                className="mr-3 text-sm text-gray-400 hover:text-white"
-              >
-                Clear Filter
-              </button>
-            )}
-            <div className="text-sm text-gray-400">
-              {selectedUserId 
-                ? `Showing ${filteredBags.length} bags` 
-                : `Showing 20 of ${bags.length} bags`}
-            </div>
+              ? `${filteredBags.length} bags for selected user` 
+              : `Showing ${filteredBags.length} of ${bags.length} bags`}
           </div>
         </div>
         
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-700">
-            <thead>
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Bag ID
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  User
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Type
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  QR Code
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  RFID
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Issued At
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  On-chain
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700">
-              {filteredBags.map((bag) => (
-                <tr key={bag.id} className="hover:bg-slate-700/50">
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-white">
-                    {bag.id}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-white">
-                    {getUserById(bag.userId)?.name || bag.userId}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm">
-                    <span className={`px-2 py-1 rounded-full text-xs ${getBagTypeBadge(bag.bagType)}`}>
-                      {bag.bagType.replace('-', ' ')}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300 font-mono">
-                    {bag.qrCode}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300 font-mono">
-                    {bag.rfid}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
-                    {formatDate(bag.issuedAt)}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-blue-400">
-                    <a
-                      href={`https://etherscan.io/tx/${bag.txHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:underline"
-                    >
-                      View on Etherscan ↗
-                    </a>
-                  </td>
+        {filteredBags.length === 0 ? (
+          <div className="p-4 text-center text-gray-400">
+            {selectedUserId 
+              ? 'No bags assigned to this user yet' 
+              : 'No bags found'}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-700">
+              <thead>
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Bag ID
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    User
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    QR Code
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    RFID
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Issued At
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        
-        {filteredBags.length === 0 && (
-          <div className="text-center py-8 text-gray-400">
-            No bags found for the selected criteria
+              </thead>
+              <tbody className="divide-y divide-slate-700">
+                {filteredBags.map((bag) => (
+                  <tr key={bag.id} className="hover:bg-slate-700/50">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-white">
+                      {bag.id}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-white">
+                      {(() => {
+                        const user = getUserById(bag.userId);
+                        return user ? user.name : bag.userId;
+                      })()}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                      <span className={`px-2 py-1 rounded-full text-xs ${getBagTypeBadge(bag.bagType)}`}>
+                        {bag.bagType.replace('-', ' ')}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                      {bag.qrCode}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                      {bag.rfid}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                      {formatDate(bag.issuedAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </GlassCard>

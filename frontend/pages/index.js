@@ -18,7 +18,7 @@ export default function Home() {
             className="bg-accentBlue text-white py-3 px-6 rounded-lg hover:bg-opacity-80 transition"
             onClick={() => router.push('/test/dashboard')}
           >
-            View Test Dashboard
+            Water Quality Dashboard
           </button>
           
           <button
@@ -32,11 +32,11 @@ export default function Home() {
             className="bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-opacity-80 transition"
             onClick={() => router.push('/test/garbage-dashboard')}
           >
-            Test Garbage Dashboard
+            Garbage Dashboard
           </button>
           
           <a
-            href="https://github.com/yourusername/water-quality-monitor"
+            href="https://github.com/Ayestorv/WATER"
             target="_blank"
             rel="noopener noreferrer"
             className="bg-white/10 text-white py-3 px-6 rounded-lg hover:bg-opacity-20 transition"

@@ -98,10 +98,42 @@ const SensorMap: React.FC<SensorMapProps> = ({
   const leafletMap = useRef<any>(null);
   const markersLayer = useRef<any>(null);
   
+  // Determine if we're in garbage or water mode based on the first sensor
+  const isGarbageMode = sensors.length > 0 && sensors[0].startsWith('bin-');
+  
+  // Cache sensor types to avoid recalculating
+  const sensorTypes = useMemo(() => {
+    const types: Record<string, string> = {};
+    
+    sensors.forEach(sensorId => {
+      // First, check based on ID prefixes for water sensors
+      if (sensorId.startsWith('wq-sensor')) types[sensorId] = 'water-quality';
+      else if (sensorId.startsWith('pump-station')) types[sensorId] = 'pump';
+      else if (sensorId.startsWith('storage-tank')) types[sensorId] = 'tank';
+      else if (sensorId.startsWith('valve-control')) types[sensorId] = 'valve';
+      else if (sensorId.startsWith('env-monitor')) types[sensorId] = 'environmental';
+      // Check for garbage bins
+      else if (sensorId.startsWith('bin-')) types[sensorId] = 'garbage';
+      // Fallback to reading data
+      else if (readings[sensorId] && readings[sensorId].length > 0) {
+        types[sensorId] = readings[sensorId][0].sensorType || 'unknown';
+      } else {
+        types[sensorId] = 'unknown';
+      }
+    });
+    
+    return types;
+  }, [sensors, readings]);
+  
+  // Get sensor type from the cached map
+  const getSensorType = (sensorId: string): string => {
+    return sensorTypes[sensorId] || 'unknown';
+  };
+  
   // Generate network connections dynamically
   const generateNetworkConnections = () => {
     // Check if we're dealing with garbage bins
-    if (sensors.length > 0 && sensors[0].startsWith('bin-')) {
+    if (isGarbageMode) {
       try {
         // For garbage bins, use the bin connections
         return BIN_NETWORK_CONNECTIONS;
@@ -296,21 +328,6 @@ const SensorMap: React.FC<SensorMapProps> = ({
       return null;
     }
     return sensorReadings[sensorReadings.length - 1];
-  };
-
-  // Cache sensor types to make the component less sensitive to reading updates
-  const sensorTypes = useMemo(() => {
-    const types: Record<string, string> = {};
-    sensors.forEach(sensorId => {
-      const reading = getLatestReading(sensorId);
-      types[sensorId] = reading?.sensorType || 'unknown';
-    });
-    return types;
-  }, [sensors, readings]); // Include readings for initial type detection, but not for position updates
-
-  // Get sensor type from the cached map
-  const getSensorType = (sensorId: string): string => {
-    return sensorTypes[sensorId] || 'unknown';
   };
 
   // Determine the color based on water quality parameters
@@ -815,14 +832,64 @@ const SensorMap: React.FC<SensorMapProps> = ({
         >
           All
         </button>
-        <button 
-          className={`text-xs px-2 py-1 rounded ${mapMode === 'garbage' ? 'bg-green-500 text-white' : 'bg-white/10 text-white/70'}`}
-          onClick={() => {
-            setMapMode('garbage');
-          }}
-        >
-          Garbage
-        </button>
+        
+        {/* Show water sensor filter buttons if we're not in garbage mode */}
+        {!isGarbageMode && (
+          <>
+            <button 
+              className={`text-xs px-2 py-1 rounded ${mapMode === 'water-quality' ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/70'}`}
+              onClick={() => {
+                setMapMode('water-quality');
+              }}
+            >
+              Water Quality
+            </button>
+            <button 
+              className={`text-xs px-2 py-1 rounded ${mapMode === 'pump' ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/70'}`}
+              onClick={() => {
+                setMapMode('pump');
+              }}
+            >
+              Pumps
+            </button>
+            <button 
+              className={`text-xs px-2 py-1 rounded ${mapMode === 'tank' ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/70'}`}
+              onClick={() => {
+                setMapMode('tank');
+              }}
+            >
+              Tanks
+            </button>
+            <button 
+              className={`text-xs px-2 py-1 rounded ${mapMode === 'valve' ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/70'}`}
+              onClick={() => {
+                setMapMode('valve');
+              }}
+            >
+              Valves
+            </button>
+            <button 
+              className={`text-xs px-2 py-1 rounded ${mapMode === 'environmental' ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/70'}`}
+              onClick={() => {
+                setMapMode('environmental');
+              }}
+            >
+              Environmental
+            </button>
+          </>
+        )}
+        
+        {/* Show garbage filter if we're in garbage mode */}
+        {isGarbageMode && (
+          <button 
+            className={`text-xs px-2 py-1 rounded ${mapMode === 'garbage' ? 'bg-green-500 text-white' : 'bg-white/10 text-white/70'}`}
+            onClick={() => {
+              setMapMode('garbage');
+            }}
+          >
+            Garbage
+          </button>
+        )}
       </div>
       
       {/* Debug overlay */}
@@ -835,10 +902,39 @@ const SensorMap: React.FC<SensorMapProps> = ({
       {/* Map legend */}
       <div className="absolute bottom-4 right-4 bg-slate-800/80 p-3 rounded-lg z-10 text-white text-xs">
         <div className="font-bold mb-1">Sensor Types</div>
-        <div className="flex items-center gap-1 mb-1">
-          <div className="w-3 h-3 rounded bg-green-500"></div>
-          <span>Garbage Bin</span>
-        </div>
+        
+        {/* Display appropriate legend based on mode */}
+        {isGarbageMode ? (
+          <>
+            <div className="flex items-center gap-1 mb-1">
+              <div className="w-3 h-3 rounded bg-green-500"></div>
+              <span>Garbage Bin</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-1 mb-1">
+              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+              <span>Water Quality</span>
+            </div>
+            <div className="flex items-center gap-1 mb-1">
+              <div className="w-3 h-3 rounded-sm bg-purple-500"></div>
+              <span>Pump Station</span>
+            </div>
+            <div className="flex items-center gap-1 mb-1">
+              <div className="w-3 h-3 rounded-sm bg-cyan-500"></div>
+              <span>Storage Tank</span>
+            </div>
+            <div className="flex items-center gap-1 mb-1">
+              <div className="w-3 h-3 transform rotate-45 inline-block bg-yellow-500"></div>
+              <span>Valve</span>
+            </div>
+            <div className="flex items-center gap-1 mb-1">
+              <div className="w-3 h-3 bg-teal-500"></div>
+              <span>Environmental</span>
+            </div>
+          </>
+        )}
       </div>
       
       {/* The actual map container */}

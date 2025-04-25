@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart City IoT & Blockchain Platform</title>
+    <style>
+        /* Base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f0f4f8;
+            overflow-x: hidden;
+        }
+        
+        /* Presentation container */
+        .presentation {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0;
+        }
+        
+        /* Slide styles */
+        .slide {
+            min-height: 100vh;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            background-color: #fff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        /* Cover slide */
+        .slide-cover {
+            background: linear-gradient(135deg, #1a365d 0%, #2a4365 50%, #2c5282 100%);
+            color: white;
+            text-align: center;
+        }
+        
+        .slide-cover h1 {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+        
+        .slide-cover p {
+            font-size: 1.5rem;
+            opacity: 0.9;
+            max-width: 800px;
+            margin: 0 auto 2rem;
+        }
+
+        .cover-content {
+            position: relative;
+            z-index: 2;
+        }
+        
+        .cover-subtitle {
+            font-size: 1.2rem;
+            opacity: 0.8;
+        }
+        
+        .cover-subtitle .separator {
+            margin: 0 1rem;
+        }
+        
+        /* Content slides */
+        .slide-content h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+            color: #2c5282;
+            position: relative;
+            padding-bottom: 0.5rem;
+        }
+        
+        .slide-content h2::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100px;
+            height: 4px;
+            background: linear-gradient(to right, #3182ce, #63b3ed);
+            border-radius: 2px;
+        }
+        
+        .slide-content h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: #2d3748;
+        }
+        
+        .slide-content p {
+            font-size: 1.25rem;
+            margin-bottom: 1.5rem;
+            max-width: 900px;
+        }
+        
+        /* Feature cards */
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        
+        .feature-card {
+            background-color: #f8fafc;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+        
+        /* Architecture diagram */
+        .architecture-diagram {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        
+        .arch-layer {
+            display: flex;
+            background: linear-gradient(to right, #edf2f7, #f7fafc);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .arch-title {
+            width: 200px;
+            background-color: #2c5282;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            font-weight: bold;
+        }
+        
+        .arch-items {
+            flex: 1;
+            display: flex;
+            gap: 1px;
+            background-color: #e2e8f0;
+        }
+        
+        .arch-item {
+            flex: 1;
+            background-color: white;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        
+        .architecture-note {
+            font-style: italic;
+            opacity: 0.7;
+            text-align: center;
+            margin-top: 1rem;
+        }
+        
+        /* Two column layout */
+        .two-columns {
+            display: flex;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .column {
+            flex: 1;
+        }
+        
+        /* Feature list */
+        .feature-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .feature-list li {
+            display: flex;
+            margin-bottom: 1.5rem;
+            align-items: flex-start;
+        }
+        
+        .feature-icon {
+            font-size: 1.5rem;
+            margin-right: 1rem;
+            background-color: #ebf8ff;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .feature-text strong {
+            display: block;
+            margin-bottom: 0.25rem;
+            color: #2c5282;
+        }
+        
+        .feature-text p {
+            margin: 0;
+            font-size: 1rem;
+            color: #4a5568;
+        }
+        
+        /* Metrics grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        
+        .metric-item {
+            background-color: #f8fafc;
+            border-radius: 6px;
+            padding: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .metric-name {
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+        }
+        
+        .metric-range {
+            color: #4a5568;
+            font-size: 0.9rem;
+        }
+        
+        /* Dashboard preview */
+        .dashboard-preview {
+            margin-top: 3rem;
+            text-align: center;
+        }
+        
+        .dashboard-preview img {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .image-caption {
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: #4a5568;
+            font-style: italic;
+        }
+        
+        /* Blockchain features */
+        .blockchain-features {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .blockchain-feature {
+            background-color: #f8fafc;
+            border-radius: 8px;
+            padding: 1.25rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .bf-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .blockchain-feature h4 {
+            margin: 0 0 0.5rem 0;
+            color: #2c5282;
+        }
+        
+        .blockchain-feature p {
+            margin: 0;
+            font-size: 0.95rem;
+            color: #4a5568;
+        }
+        
+        /* Route optimization */
+        .route-optimization {
+            margin-top: 3rem;
+        }
+        
+        .optimization-metrics {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        
+        .opt-metric {
+            background: linear-gradient(to bottom right, #ebf8ff, #bee3f8);
+            border-radius: 8px;
+            padding: 1.5rem 1rem;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+        
+        .opt-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #2c5282;
+            margin-bottom: 0.5rem;
+        }
+        
+        .opt-label {
+            font-size: 0.9rem;
+            color: #4a5568;
+        }
+        
+        /* Blockchain integration */
+        .blockchain-integration {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        
+        .blockchain-component {
+            display: flex;
+            background-color: #f8fafc;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+        
+        .bc-icon {
+            width: 100px;
+            background-color: #2c5282;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+        }
+        
+        .svg-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+        }
+        
+        .bc-content {
+            flex: 1;
+            padding: 1.5rem;
+        }
+        
+        .bc-content h3 {
+            margin-top: 0;
+            margin-bottom: 0.75rem;
+            color: #2c5282;
+        }
+        
+        .bc-content p {
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+        
+        .bc-list {
+            list-style-type: disc;
+            padding-left: 1.5rem;
+            margin: 0;
+        }
+        
+        .bc-list li {
+            margin-bottom: 0.5rem;
+            color: #4a5568;
+        }
+        
+        /* Wallet integration */
+        .wallet-integration {
+            margin-top: 2.5rem;
+        }
+        
+        .wallet-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .wallet-button {
+            background-color: #f8fafc;
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .wallet-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .wallet-icon {
+            font-size: 1.5rem;
+            margin-right: 0.75rem;
+        }
+        
+        .wallet-name {
+            font-weight: 500;
+            color: #2d3748;
+        }
+        
+        /* Demo showcase */
+        .demo-showcase {
+            margin-top: 2rem;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            background-color: #f8fafc;
+        }
+        
+        .demo-tabs {
+            display: flex;
+            background-color: #2c5282;
+        }
+        
+        .demo-tab {
+            padding: 1rem 1.5rem;
+            color: white;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+        
+        .demo-tab.active {
+            opacity: 1;
+            border-bottom: 3px solid white;
+        }
+        
+        .demo-tab:hover {
+            opacity: 0.9;
+        }
+        
+        .demo-content {
+            display: none;
+            padding: 2rem;
+        }
+        
+        .demo-content.active {
+            display: block;
+        }
+        
+        .demo-screenshot {
+            margin-bottom: 1.5rem;
+        }
+        
+        .demo-screenshot img {
+            width: 100%;
+            border-radius: 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        
+        .demo-features h3 {
+            margin-bottom: 1rem;
+            color: #2c5282;
+        }
+        
+        .demo-feature-list {
+            list-style-type: disc;
+            padding-left: 1.5rem;
+        }
+        
+        .demo-feature-list li {
+            margin-bottom: 0.5rem;
+            color: #4a5568;
+        }
+        
+        /* Demo links */
+        .demo-links {
+            margin-top: 2.5rem;
+        }
+        
+        .link-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .demo-link {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1.25rem;
+            background-color: #2c5282;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+        
+        .demo-link:hover {
+            background-color: #1e3a5f;
+            transform: translateY(-2px);
+        }
+        
+        .demo-link-icon {
+            font-size: 1.25rem;
+            margin-right: 0.75rem;
+        }
+        
+        /* Roadmap */
+        .roadmap {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        
+        .roadmap-phase {
+            display: flex;
+            align-items: flex-start;
+            background-color: #f8fafc;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+        
+        .phase-icon {
+            width: 60px;
+            height: 60px;
+            background-color: #2c5282;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        
+        .phase-content {
+            flex: 1;
+            padding: 1.25rem;
+            position: relative;
+        }
+        
+        .phase-content h3 {
+            margin: 0 0 0.5rem 0;
+            color: #2c5282;
+        }
+        
+        .phase-content p {
+            margin: 0;
+            color: #4a5568;
+            font-size: 1rem;
+        }
+        
+        .phase-timeline {
+            position: absolute;
+            top: 1.25rem;
+            right: 1.25rem;
+            background-color: #ebf8ff;
+            color: #2c5282;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        /* Benefits summary */
+        .benefits-summary {
+            margin-top: 3rem;
+        }
+        
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        
+        .benefit-item {
+            display: flex;
+            align-items: flex-start;
+            padding: 1.25rem;
+            background-color: #f8fafc;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+        
+        .benefit-icon {
+            font-size: 1.75rem;
+            margin-right: 1rem;
+        }
+        
+        .benefit-content h4 {
+            margin: 0 0 0.5rem 0;
+            color: #2c5282;
+        }
+        
+        .benefit-content p {
+            margin: 0;
+            color: #4a5568;
+            font-size: 0.95rem;
+        }
+        
+        /* Contact info */
+        .contact-info {
+            margin-top: 3rem;
+            text-align: center;
+        }
+        
+        .contact-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        
+        .contact-button {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            background-color: #2c5282;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+        
+        .contact-button:hover {
+            background-color: #1e3a5f;
+            transform: translateY(-2px);
+        }
+        
+        .contact-icon {
+            font-size: 1.25rem;
+            margin-right: 0.75rem;
+        }
+        
+        /* Navigation buttons */
+        .nav-buttons {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            display: flex;
+            gap: 0.5rem;
+            z-index: 100;
+        }
+        
+        .nav-button {
+            width: 3rem;
+            height: 3rem;
+            border-radius: 50%;
+            background-color: #2c5282;
+            color: white;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            transition: all 0.3s;
+        }
+        
+        .nav-button:hover {
+            background-color: #1e3a5f;
+            transform: translateY(-2px);
+        }
+        
+        /* Responsive styles */
+        @media (max-width: 768px) {
+            .slide {
+                padding: 1rem;
+            }
+            
+            .slide-cover h1 {
+                font-size: 2.5rem;
+            }
+            
+            .slide-cover p {
+                font-size: 1.2rem;
+            }
+            
+            .slide-content h2 {
+                font-size: 2rem;
+            }
+            
+            .two-columns {
+                flex-direction: column;
+            }
+            
+            .architecture-diagram {
+                overflow-x: auto;
+            }
+            
+            .arch-layer {
+                flex-direction: column;
+            }
+            
+            .arch-title {
+                width: 100%;
+                text-align: center;
+            }
+            
+            .arch-items {
+                flex-direction: column;
+            }
+            
+            .optimization-metrics {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .blockchain-component {
+                flex-direction: column;
+            }
+            
+            .bc-icon {
+                width: 100%;
+                padding: 1rem;
+            }
+            
+            .demo-tabs {
+                flex-direction: column;
+            }
+            
+            .benefits-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .contact-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="nav-buttons">
+        <button class="nav-button prev-button" title="Previous Slide">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+        </button>
+        <button class="nav-button next-button" title="Next Slide">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+        </button>
+    </div>
+    
+    <div class="presentation">
+        <!-- Cover slide -->
+        <section class="slide slide-cover">
+            <div class="cover-content">
+                <h1>Vericiudad</h1>
+                <p>A Smart City IoT & Blockchain Platform for Water Quality Monitoring and Garbage Management based on Trust</p>
+                <div class="cover-subtitle">
+                    <span>Hackathon Demo</span>
+                    <span class="separator">|</span>
+                    <span>Smart City Integration</span>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Overview slide -->
+        <section class="slide slide-content">
+            <h2>Project Overview</h2>
+            <p>WATER is an integrated smart city platform leveraging IoT sensors and blockchain technology to revolutionize urban infrastructure management.</p>
+            
+            <div class="features">
+                <div class="feature-card">
+                    <h3>Water Quality Monitoring</h3>
+                    <p>Real-time monitoring of water quality parameters using distributed IoT sensors with blockchain verification.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h3>Garbage Management</h3>
+                    <p>Smart waste collection system with fill-level tracking, optimized collection routes, and blockchain-based incentives.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h3>Blockchain Integration</h3>
+                    <p>Immutable record-keeping, transparent data verification, and crypto incentives to promote sustainable behaviors.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h3>Smart City Dashboard</h3>
+                    <p>Comprehensive visualization of sensor data, blockchain events, and system metrics for urban management.</p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Architecture slide -->
+        <section class="slide slide-content">
+            <h2>System Architecture</h2>
+            <p>Our platform integrates multiple layers of technology to create a comprehensive smart city solution:</p>
+            
+            <div class="architecture-diagram">
+                <div class="arch-layer">
+                    <div class="arch-title">IoT Layer</div>
+                    <div class="arch-items">
+                        <div class="arch-item">Water Quality Sensors</div>
+                        <div class="arch-item">Garbage Bin Sensors</div>
+                        <div class="arch-item">Environmental Sensors</div>
+                    </div>
+                </div>
+                
+                <div class="arch-layer">
+                    <div class="arch-title">Data Processing Layer</div>
+                    <div class="arch-items">
+                        <div class="arch-item">Edge Computing</div>
+                        <div class="arch-item">Real-time Analytics</div>
+                        <div class="arch-item">Data Verification</div>
+                    </div>
+                </div>
+                
+                <div class="arch-layer">
+                    <div class="arch-title">Blockchain Layer</div>
+                    <div class="arch-items">
+                        <div class="arch-item">Smart Contracts</div>
+                        <div class="arch-item">Data Immutability</div>
+                        <div class="arch-item">Tokenized Incentives</div>
+                    </div>
+                </div>
+                
+                <div class="arch-layer">
+                    <div class="arch-title">Application Layer</div>
+                    <div class="arch-items">
+                        <div class="arch-item">Monitoring Dashboard</div>
+                        <div class="arch-item">Mobile Applications</div>
+                        <div class="arch-item">Alerts & Notifications</div>
+                    </div>
+                </div>
+            </div>
+            
+            <p class="architecture-note">All layers are designed for scalability, security, and interoperability with existing city infrastructure.</p>
+        </section>
+        
+        <!-- Water Quality Module slide -->
+        <section class="slide slide-content">
+            <h2>Water Quality Monitoring Module</h2>
+            <p>Our water quality monitoring system uses a network of IoT sensors to provide real-time data on municipal water quality metrics.</p>
+            
+            <div class="two-columns">
+                <div class="column">
+                    <h3>Key Features</h3>
+                    <ul class="feature-list">
+                        <li>
+                            <span class="feature-icon">📊</span>
+                            <div class="feature-text">
+                                <strong>Real-time Monitoring</strong>
+                                <p>Continuous measurement of key water quality parameters</p>
+                            </div>
+                        </li>
+                        <li>
+                            <span class="feature-icon">🔔</span>
+                            <div class="feature-text">
+                                <strong>Automated Alerts</strong>
+                                <p>Instant notifications for quality threshold violations</p>
+                            </div>
+                        </li>
+                        <li>
+                            <span class="feature-icon">📱</span>
+                            <div class="feature-text">
+                                <strong>Mobile Integration</strong>
+                                <p>Access to water quality data for citizens via mobile app</p>
+                            </div>
+                        </li>
+                        <li>
+                            <span class="feature-icon">⛓️</span>
+                            <div class="feature-text">
+                                <strong>Blockchain Verification</strong>
+                                <p>Tamper-proof records of water quality measurements</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="column">
+                    <h3>Metrics Monitored</h3>
+                    <div class="metrics-grid">
+                        <div class="metric-item">
+                            <div class="metric-name">pH Levels</div>
+                            <div class="metric-range">6.5-8.5</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-name">Turbidity</div>
+                            <div class="metric-range"><5 NTU</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-name">Dissolved Oxygen</div>
+                            <div class="metric-range">≥6 mg/L</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-name">Chlorine Residual</div>
+                            <div class="metric-range">0.2-4 mg/L</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-name">Temperature</div>
+                            <div class="metric-range">10-25°C</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-name">Conductivity</div>
+                            <div class="metric-range">≤500 μS/cm</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-name">Total Dissolved Solids</div>
+                            <div class="metric-range">≤500 mg/L</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-name">Nitrates</div>
+                            <div class="metric-range">≤10 mg/L</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="dashboard-preview">
+                <img src="https://via.placeholder.com/800x400" alt="Water Quality Dashboard Preview">
+                <p class="image-caption">Water quality monitoring dashboard interface</p>
+            </div>
+        </section>
+        
+        <!-- Garbage Management Module slide -->
+        <section class="slide slide-content">
+            <h2>Garbage Management Module</h2>
+            <p>Our smart waste management system optimizes collection processes while incentivizing proper waste disposal through blockchain rewards.</p>
+            
+            <div class="two-columns">
+                <div class="column">
+                    <h3>Smart Bins Technology</h3>
+                    <ul class="feature-list">
+                        <li>
+                            <span class="feature-icon">📡</span>
+                            <div class="feature-text">
+                                <strong>IoT-Enabled Bins</strong>
+                                <p>Fill-level sensors with real-time data transmission</p>
+                            </div>
+                        </li>
+                        <li>
+                            <span class="feature-icon">🔋</span>
+                            <div class="feature-text">
+                                <strong>Solar-Powered</strong>
+                                <p>Self-sufficient energy with battery backup</p>
+                            </div>
+                        </li>
+                        <li>
+                            <span class="feature-icon">🔒</span>
+                            <div class="feature-text">
+                                <strong>Smart Access Control</strong>
+                                <p>User authentication via mobile app or RFID cards</p>
+                            </div>
+                        </li>
+                        <li>
+                            <span class="feature-icon">🧠</span>
+                            <div class="feature-text">
+                                <strong>AI Waste Classification</strong>
+                                <p>Automated sorting verification using cameras and ML</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="column">
+                    <h3>Blockchain Integration</h3>
+                    <div class="blockchain-features">
+                        <div class="blockchain-feature">
+                            <div class="bf-icon">🪙</div>
+                            <h4>Tokenized Rewards</h4>
+                            <p>Citizens earn EcoTokens for proper waste disposal, redeemable for municipal services or partner discounts</p>
+                        </div>
+                        <div class="blockchain-feature">
+                            <div class="bf-icon">📊</div>
+                            <h4>Transparent Reporting</h4>
+                            <p>Immutable waste management records accessible to all stakeholders</p>
+                        </div>
+                        <div class="blockchain-feature">
+                            <div class="bf-icon">⚖️</div>
+                            <h4>Smart Contracts</h4>
+                            <p>Automated waste collection service agreements with performance-based compensation</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="route-optimization">
+                <h3>Collection Route Optimization</h3>
+                <div class="optimization-metrics">
+                    <div class="opt-metric">
+                        <div class="opt-value">32%</div>
+                        <div class="opt-label">Reduction in Collection Trips</div>
+                    </div>
+                    <div class="opt-metric">
+                        <div class="opt-value">27%</div>
+                        <div class="opt-label">Fuel Savings</div>
+                    </div>
+                    <div class="opt-metric">
+                        <div class="opt-value">45%</div>
+                        <div class="opt-label">Decrease in Overflow Incidents</div>
+                    </div>
+                    <div class="opt-metric">
+                        <div class="opt-value">3.5x</div>
+                        <div class="opt-label">ROI Within First Year</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Blockchain Integration slide -->
+        <section class="slide slide-content">
+            <h2>Blockchain Integration</h2>
+            <p>Our platform leverages blockchain technology to ensure data integrity, facilitate transparent governance, and create economic incentives for sustainable behavior.</p>
+            
+            <div class="blockchain-integration">
+                <div class="blockchain-component">
+                    <div class="bc-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon">
+                            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                        </svg>
+                    </div>
+                    <div class="bc-content">
+                        <h3>Smart Contracts</h3>
+                        <p>Self-executing contracts that automatically enforce and validate sensor data commitments, incentive distribution, and service agreements.</p>
+                        <ul class="bc-list">
+                            <li>Transparent rule execution</li>
+                            <li>Automated compliance verification</li>
+                            <li>Reduced administrative overhead</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="blockchain-component">
+                    <div class="bc-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+                            <line x1="9" y1="9" x2="9.01" y2="9"></line>
+                            <line x1="15" y1="9" x2="15.01" y2="9"></line>
+                        </svg>
+                    </div>
+                    <div class="bc-content">
+                        <h3>EcoTokens</h3>
+                        <p>Native utility tokens that incentivize positive environmental behaviors and enable a circular economy within the smart city.</p>
+                        <ul class="bc-list">
+                            <li>Rewards for proper waste disposal</li>
+                            <li>Discounts on municipal services</li>
+                            <li>Community governance participation</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="blockchain-component">
+                    <div class="bc-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon">
+                            <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                        </svg>
+                    </div>
+                    <div class="bc-content">
+                        <h3>Data Integrity</h3>
+                        <p>Immutable record-keeping ensures that all environmental data is tamper-proof and transparent for public verification.</p>
+                        <ul class="bc-list">
+                            <li>Cryptographic verification of sensor data</li>
+                            <li>Public auditability of environmental metrics</li>
+                            <li>Historical data tracking and analysis</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="wallet-integration">
+                <h3>Wallet Integration</h3>
+                <p>Users can connect their crypto wallets to interact with the platform's blockchain features:</p>
+                <div class="wallet-buttons">
+                    <div class="wallet-button">
+                        <span class="wallet-icon">📱</span>
+                        <span class="wallet-name">Mobile App</span>
+                    </div>
+                    <div class="wallet-button">
+                        <span class="wallet-icon">🦊</span>
+                        <span class="wallet-name">MetaMask</span>
+                    </div>
+                    <div class="wallet-button">
+                        <span class="wallet-icon">💎</span>
+                        <span class="wallet-name">Trust Wallet</span>
+                    </div>
+                    <div class="wallet-button">
+                        <span class="wallet-icon">🔐</span>
+                        <span class="wallet-name">Hardware Wallets</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Demo slide -->
+        <section class="slide slide-content">
+            <h2>Demo Showcase</h2>
+            <p>Experience our integrated Smart City solution in action through this interactive demonstration.</p>
+            
+            <div class="demo-showcase">
+                <div class="demo-tabs">
+                    <button class="demo-tab active" data-tab="water">Water Quality Module</button>
+                    <button class="demo-tab" data-tab="garbage">Garbage Management Module</button>
+                    <button class="demo-tab" data-tab="blockchain">Blockchain Integration</button>
+                </div>
+                
+                <div class="demo-content active" id="water-content">
+                    <div class="demo-screenshot">
+                        <img src="https://via.placeholder.com/800x450" alt="Water Quality Dashboard Screenshot">
+                    </div>
+                    <div class="demo-features">
+                        <h3>Water Quality Dashboard Features</h3>
+                        <ul class="demo-feature-list">
+                            <li>Real-time monitoring of pH, turbidity, dissolved oxygen, and more</li>
+                            <li>Interactive map showing sensor locations and status</li>
+                            <li>Historical data visualization with customizable date ranges</li>
+                            <li>Automated alert system for quality threshold violations</li>
+                            <li>Blockchain verification of all critical measurements</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="demo-content" id="garbage-content">
+                    <div class="demo-screenshot">
+                        <img src="https://via.placeholder.com/800x450" alt="Garbage Management Dashboard Screenshot">
+                    </div>
+                    <div class="demo-features">
+                        <h3>Garbage Management Dashboard Features</h3>
+                        <ul class="demo-feature-list">
+                            <li>Real-time bin fill-level monitoring across the city</li>
+                            <li>AI-powered collection route optimization</li>
+                            <li>Citizen reward tracking for proper waste disposal</li>
+                            <li>Detailed analytics on waste collection efficiency</li>
+                            <li>Integration with municipal waste management systems</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="demo-content" id="blockchain-content">
+                    <div class="demo-screenshot">
+                        <img src="https://via.placeholder.com/800x450" alt="Blockchain Dashboard Screenshot">
+                    </div>
+                    <div class="demo-features">
+                        <h3>Blockchain Dashboard Features</h3>
+                        <ul class="demo-feature-list">
+                            <li>Transparent tracking of all recorded sensor data</li>
+                            <li>Smart contract execution monitoring</li>
+                            <li>EcoToken distribution and transaction history</li>
+                            <li>Citizen wallet integration for rewards and incentives</li>
+                            <li>Verification of data integrity and compliance</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="demo-links">
+                <h3>Interactive Demo Access</h3>
+                <div class="link-buttons">
+                    <a href="/dashboard" class="demo-link">
+                        <span class="demo-link-icon">💧</span>
+                        <span class="demo-link-text">Water Quality Dashboard</span>
+                    </a>
+                    <a href="/test/garbage-dashboard" class="demo-link">
+                        <span class="demo-link-icon">🗑️</span>
+                        <span class="demo-link-text">Garbage Management Dashboard</span>
+                    </a>
+                    <a href="#" class="demo-link">
+                        <span class="demo-link-icon">⛓️</span>
+                        <span class="demo-link-text">Blockchain Explorer</span>
+                    </a>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Conclusion slide -->
+        <section class="slide slide-content">
+            <h2>Future Vision & Next Steps</h2>
+            <p>Our Smart City solution is designed with scalability and sustainability at its core. Here's how we plan to expand this platform beyond the hackathon:</p>
+            
+            <div class="roadmap">
+                <div class="roadmap-phase">
+                    <div class="phase-icon">1</div>
+                    <div class="phase-content">
+                        <h3>Pilot Deployment</h3>
+                        <p>Deploy a network of 50+ water quality sensors and 30+ smart garbage bins in a selected district</p>
+                        <div class="phase-timeline">Q3 2025</div>
+                    </div>
+                </div>
+                
+                <div class="roadmap-phase">
+                    <div class="phase-icon">2</div>
+                    <div class="phase-content">
+                        <h3>Integration & Expansion</h3>
+                        <p>Integrate with existing municipal systems and expand to cover additional urban areas</p>
+                        <div class="phase-timeline">Q1 2026</div>
+                    </div>
+                </div>
+                
+                <div class="roadmap-phase">
+                    <div class="phase-icon">3</div>
+                    <div class="phase-content">
+                        <h3>Feature Enhancement</h3>
+                        <p>Add air quality monitoring, energy management, and enhanced citizen participation features</p>
+                        <div class="phase-timeline">Q3 2026</div>
+                    </div>
+                </div>
+                
+                <div class="roadmap-phase">
+                    <div class="phase-icon">4</div>
+                    <div class="phase-content">
+                        <h3>Full Smart City Integration</h3>
+                        <p>Complete integration with all city services and expansion of the EcoToken economy</p>
+                        <div class="phase-timeline">2027</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="benefits-summary">
+                <h3>Benefits Overview</h3>
+                <div class="benefits-grid">
+                    <div class="benefit-item">
+                        <div class="benefit-icon">🌊</div>
+                        <div class="benefit-content">
+                            <h4>Improved Water Quality</h4>
+                            <p>Early detection of contaminants and enhanced management of water resources</p>
+                        </div>
+                    </div>
+                    
+                    <div class="benefit-item">
+                        <div class="benefit-icon">♻️</div>
+                        <div class="benefit-content">
+                            <h4>Optimized Waste Management</h4>
+                            <p>Reduced collection costs and improved recycling rates</p>
+                        </div>
+                    </div>
+                    
+                    <div class="benefit-item">
+                        <div class="benefit-icon">💵</div>
+                        <div class="benefit-content">
+                            <h4>Cost Savings</h4>
+                            <p>25-40% operational cost reduction for municipal services</p>
+                        </div>
+                    </div>
+                    
+                    <div class="benefit-item">
+                        <div class="benefit-icon">👥</div>
+                        <div class="benefit-content">
+                            <h4>Citizen Engagement</h4>
+                            <p>Increased participation through transparency and incentives</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="contact-info">
+                <h3>Contact Us</h3>
+                <p>For more information about implementing this solution in your city:</p>
+                <div class="contact-buttons">
+                    <a href="mailto:info@watersmartcity.io" class="contact-button">
+                        <span class="contact-icon">📧</span>
+                        <span>info@watersmartcity.io</span>
+                    </a>
+                    <a href="https://watersmartcity.io" class="contact-button">
+                        <span class="contact-icon">🌐</span>
+                        <span>watersmartcity.io</span>
+                    </a>
+                </div>
+            </div>
+        </section>
+    </div>
+    <script>
+        // Demo tabs functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const tabs = document.querySelectorAll('.demo-tab');
+            const contents = document.querySelectorAll('.demo-content');
+            const slides = document.querySelectorAll('.slide');
+            const prevButton = document.querySelector('.prev-button');
+            const nextButton = document.querySelector('.next-button');
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // Remove active class from all tabs and contents
+                    tabs.forEach(t => t.classList.remove('active'));
+                    contents.forEach(c => c.classList.remove('active'));
+                    
+                    // Add active class to clicked tab
+                    tab.classList.add('active');
+                    
+                    // Show corresponding content
+                    const tabName = tab.getAttribute('data-tab');
+                    document.getElementById(`${tabName}-content`).classList.add('active');
+                });
+            });
+            
+            // Simple navigation between slides with keyboard
+            document.addEventListener('keydown', function(event) {
+                const slides = document.querySelectorAll('.slide');
+                
+                if (event.key === 'ArrowDown' || event.key === 'PageDown') {
+                    // Find the next slide
+                    const currentSlideIndex = findCurrentVisibleSlide(slides);
+                    if (currentSlideIndex < slides.length - 1) {
+                        slides[currentSlideIndex + 1].scrollIntoView({ behavior: 'smooth' });
+                    }
+                    event.preventDefault();
+                } else if (event.key === 'ArrowUp' || event.key === 'PageUp') {
+                    // Find the previous slide
+                    const currentSlideIndex = findCurrentVisibleSlide(slides);
+                    if (currentSlideIndex > 0) {
+                        slides[currentSlideIndex - 1].scrollIntoView({ behavior: 'smooth' });
+                    }
+                    event.preventDefault();
+                }
+            });
+            
+            // Helper function to find which slide is currently most visible
+            // Navigation button handlers
+            prevButton.addEventListener('click', function() {
+                const currentSlideIndex = findCurrentVisibleSlide(slides);
+                if (currentSlideIndex > 0) {
+                    slides[currentSlideIndex - 1].scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+            
+            nextButton.addEventListener('click', function() {
+                const currentSlideIndex = findCurrentVisibleSlide(slides);
+                if (currentSlideIndex < slides.length - 1) {
+                    slides[currentSlideIndex + 1].scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+            
+            function findCurrentVisibleSlide(slides) {
+                const viewportHeight = window.innerHeight;
+                const viewportTop = window.scrollY;
+                const viewportCenter = viewportTop + viewportHeight / 2;
+                
+                let closestSlide = 0;
+                let closestDistance = Infinity;
+                
+                slides.forEach((slide, index) => {
+                    const rect = slide.getBoundingClientRect();
+                    const slideCenter = viewportTop + rect.top + rect.height / 2;
+                    const distance = Math.abs(viewportCenter - slideCenter);
+                    
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestSlide = index;
+                    }
+                });
+                
+                return closestSlide;
+            }
+            
+            // Update navigation button states based on current slide
+            function updateNavButtons() {
+                const currentSlideIndex = findCurrentVisibleSlide(slides);
+                
+                // Disable previous button on first slide
+                if (currentSlideIndex === 0) {
+                    prevButton.classList.add('disabled');
+                    prevButton.style.opacity = '0.5';
+                } else {
+                    prevButton.classList.remove('disabled');
+                    prevButton.style.opacity = '1';
+                }
+                
+                // Disable next button on last slide
+                if (currentSlideIndex === slides.length - 1) {
+                    nextButton.classList.add('disabled');
+                    nextButton.style.opacity = '0.5';
+                } else {
+                    nextButton.classList.remove('disabled');
+                    nextButton.style.opacity = '1';
+                }
+            }
+            
+            // Update navigation buttons on scroll
+            window.addEventListener('scroll', updateNavButtons);
+            
+            // Initial update
+            updateNavButtons();
+        });
+    </script>
+</body>
+</html>

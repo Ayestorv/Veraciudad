@@ -1,38 +1,174 @@
 import React, { useState, useEffect } from 'react';
-import { BIN_IDS, GARBAGE_BINS, BLOCKCHAIN_EVENTS } from '../utils/garbageDummyData';
+import { BIN_IDS, GARBAGE_BINS, BLOCKCHAIN_EVENTS, BAGS, USERS } from '../utils/garbageDummyData';
+import { 
+  getBins, 
+  saveBins, 
+  getBinIds, 
+  saveBinIds, 
+  getBlockchainEvents, 
+  saveBlockchainEvents, 
+  getBags, 
+  saveBags, 
+  getUsers, 
+  saveUsers,
+  type User,
+  type Bag,
+  type Bin,
+  type BlockchainEvent
+} from '../utils/garbageLocalStorage';
 import GlassCard from '../components/GlassCard';
 import UserOnboarding from '../components/garbage/UserOnboarding';
 import BagAssignment from '../components/garbage/BagAssignment';
 import BinScanner from '../components/garbage/BinScanner';
 import PointsDashboard from '../components/garbage/PointsDashboard';
+import GarbageTimeline from '../components/garbage/GarbageTimeline';
 
 const GarbageManagement = () => {
   const [activeTab, setActiveTab] = useState<string>('userOnboarding');
   const [selectedBin, setSelectedBin] = useState<string | null>(null);
   const [binType, setBinType] = useState<string | null>(null);
-  const [filteredEvents, setFilteredEvents] = useState<any[]>([]);
+  const [filteredEvents, setFilteredEvents] = useState<BlockchainEvent[]>([]);
   const [selectedUser, setSelectedUser] = useState<string>('all');
   const [eventTypeFilter, setEventTypeFilter] = useState<string>('all');
+  // MetaMask states
+  const [account, setAccount] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState<boolean>(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [binIds, setBinIds] = useState<string[]>([]);
+  const [bins, setBins] = useState<Bin[]>([]);
+  const [events, setEvents] = useState<BlockchainEvent[]>([]);
   
-  // Initialize with first bin on mount
+  // Initialize localStorage and data on mount
   useEffect(() => {
-    if (BIN_IDS.length > 0) {
-      setSelectedBin(BIN_IDS[0]);
+    // Initialize localStorage with dummy data if it doesn't exist
+    initializeLocalStorage();
+    
+    // Load data from localStorage
+    const storedBinIds = getBinIds(BIN_IDS);
+    const storedBins = getBins(GARBAGE_BINS);
+    const storedEvents = getBlockchainEvents(BLOCKCHAIN_EVENTS);
+    
+    setBinIds(storedBinIds);
+    setBins(storedBins);
+    setEvents(storedEvents);
+    
+    // Initialize with first bin
+    if (storedBinIds.length > 0) {
+      setSelectedBin(storedBinIds[0]);
       
-      // Get bin type from GARBAGE_BINS
-      const binInfo = GARBAGE_BINS.find(bin => bin.id === BIN_IDS[0]);
+      // Get bin type from stored bins
+      const binInfo = storedBins.find(bin => bin.id === storedBinIds[0]);
       if (binInfo) {
         setBinType(binInfo.binType);
       }
     }
     
-    // Initialize blockchain events
-    setFilteredEvents(BLOCKCHAIN_EVENTS);
+    // Initialize filtered events
+    setFilteredEvents(storedEvents);
+    
+    // Check if MetaMask is already connected
+    checkIfWalletIsConnected();
   }, []);
+  
+  // Initialize localStorage with dummy data if empty
+  const initializeLocalStorage = () => {
+    // Check and initialize users
+    const storedUsers = getUsers(null);
+    if (!storedUsers || storedUsers.length === 0) {
+      saveUsers(USERS);
+    }
+    
+    // Check and initialize bags
+    const storedBags = getBags(null);
+    if (!storedBags || storedBags.length === 0) {
+      saveBags(BAGS);
+    }
+    
+    // Check and initialize bins
+    const storedBins = getBins(null);
+    if (!storedBins || storedBins.length === 0) {
+      saveBins(GARBAGE_BINS);
+    }
+    
+    // Check and initialize bin IDs
+    const storedBinIds = getBinIds(null);
+    if (!storedBinIds || storedBinIds.length === 0) {
+      saveBinIds(BIN_IDS);
+    }
+    
+    // Check and initialize blockchain events
+    const storedEvents = getBlockchainEvents(null);
+    if (!storedEvents || storedEvents.length === 0) {
+      saveBlockchainEvents(BLOCKCHAIN_EVENTS);
+    }
+  };
+  
+  // Check if MetaMask is already connected
+  const checkIfWalletIsConnected = async () => {
+    try {
+      // Check if window.ethereum is available (MetaMask installed)
+      const { ethereum } = window as any;
+      
+      if (!ethereum) {
+        console.log("MetaMask not installed!");
+        return;
+      }
+      
+      // Check if we're authorized to access the user's wallet
+      const accounts = await ethereum.request({ method: 'eth_accounts' });
+      
+      if (accounts.length !== 0) {
+        // User has previously authorized, we can grab the first account
+        setAccount(accounts[0]);
+      }
+    } catch (error) {
+      console.error("Error checking if wallet is connected:", error);
+    }
+  };
+  
+  // Connect wallet handler
+  const connectWallet = async () => {
+    try {
+      setIsConnecting(true);
+      setConnectionError(null);
+      
+      const { ethereum } = window as any;
+      
+      if (!ethereum) {
+        setConnectionError("MetaMask not found! Please install MetaMask extension.");
+        setIsConnecting(false);
+        return;
+      }
+      
+      // Request account access
+      const accounts = await ethereum.request({ 
+        method: 'eth_requestAccounts' 
+      });
+      
+      // Set the first account as current account
+      setAccount(accounts[0]);
+      setIsConnecting(false);
+      
+    } catch (error: any) {
+      console.error("Error connecting to MetaMask:", error);
+      setConnectionError(error.message || "Failed to connect to wallet");
+      setIsConnecting(false);
+    }
+  };
+  
+  // Disconnect handler (for UI purposes only - doesn't actually disconnect MetaMask)
+  const disconnectWallet = () => {
+    setAccount(null);
+  };
+  
+  // Format address for display
+  const formatAddress = (address: string) => {
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  };
   
   // Filter events when filters change
   useEffect(() => {
-    let filtered = [...BLOCKCHAIN_EVENTS];
+    let filtered = [...events];
     
     // Filter by user
     if (selectedUser !== 'all') {
@@ -45,7 +181,7 @@ const GarbageManagement = () => {
     }
     
     setFilteredEvents(filtered);
-  }, [selectedUser, eventTypeFilter]);
+  }, [selectedUser, eventTypeFilter, events]);
   
   // Handle bin selection change
   const handleBinChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -53,7 +189,7 @@ const GarbageManagement = () => {
     setSelectedBin(binId);
     
     // Update bin type
-    const binInfo = GARBAGE_BINS.find(bin => bin.id === binId);
+    const binInfo = bins.find(bin => bin.id === binId);
     if (binInfo) {
       setBinType(binInfo.binType);
     }
@@ -82,7 +218,7 @@ const GarbageManagement = () => {
                       onChange={handleBinChange}
                       className="w-full bg-slate-800 border border-slate-700 rounded-md p-2 text-white"
                     >
-                      {BIN_IDS.map(binId => (
+                      {binIds.map(binId => (
                         <option key={binId} value={binId}>
                           {binId}
                         </option>
@@ -130,104 +266,32 @@ const GarbageManagement = () => {
                   <select
                     value={selectedUser}
                     onChange={(e) => setSelectedUser(e.target.value)}
-                    className="bg-slate-800 border border-slate-700 rounded-md p-1 text-sm text-white"
+                    className="bg-slate-800 border border-slate-700 rounded-md p-2 text-white text-sm"
                   >
                     <option value="all">All Users</option>
-                    {Array.from(new Set(BLOCKCHAIN_EVENTS.map(event => event.userId)))
-                      .filter(Boolean)
-                      .map(userId => {
-                        const userEvent = BLOCKCHAIN_EVENTS.find(e => e.userId === userId);
-                        const userName = userEvent?.userId || 'Unknown';
-                        return (
-                          <option key={userId} value={userId}>{userName}</option>
-                        );
-                      })}
+                    {getUsers([]).map(user => (
+                      <option key={user.id} value={user.id}>
+                        {user.name}
+                      </option>
+                    ))}
                   </select>
                   
                   <select
                     value={eventTypeFilter}
                     onChange={(e) => setEventTypeFilter(e.target.value)}
-                    className="bg-slate-800 border border-slate-700 rounded-md p-1 text-sm text-white"
+                    className="bg-slate-800 border border-slate-700 rounded-md p-2 text-white text-sm"
                   >
                     <option value="all">All Events</option>
-                    <option value="user-registration">User Registration</option>
-                    <option value="bag-issuance">Bag Issuance</option>
+                    <option value="registration">Registration</option>
+                    <option value="bagIssuance">Bag Issuance</option>
                     <option value="disposal">Disposal</option>
-                    <option value="reward">Rewards</option>
-                    <option value="fine">Fines</option>
+                    <option value="reward">Reward</option>
+                    <option value="fine">Fine</option>
                   </select>
                 </div>
               </div>
               
-              <div className="mt-4">
-                <p className="text-gray-300 text-sm mb-4">
-                  Viewing all blockchain events and registry entries in the waste management system. 
-                  Each entry represents an immutable record on the blockchain.
-                </p>
-                
-                <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
-                  {filteredEvents.length === 0 ? (
-                    <div className="p-4 text-center text-gray-400">
-                      No events to display
-                    </div>
-                  ) : (
-                    filteredEvents.map(event => (
-                      <div key={event.id} className="p-3 bg-slate-800 rounded-md">
-                        <div className="flex">
-                          <div className="mr-3 text-2xl">
-                            {event.eventType === 'user-registration' && '👤'}
-                            {event.eventType === 'bag-issuance' && '🛍️'}
-                            {event.eventType === 'disposal' && '🗑️'}
-                            {event.eventType === 'reward' && '🏆'}
-                            {event.eventType === 'fine' && '💸'}
-                          </div>
-                          <div className="flex-1">
-                            <div className="font-medium">
-                              {event.eventType === 'user-registration' && `User registered: ${event.userId}`}
-                              {event.eventType === 'bag-issuance' && `Bag issued: ${event.bagId} to ${event.userId}`}
-                              {event.eventType === 'disposal' && `Waste disposal: ${event.correct ? 'Correct' : 'Incorrect'} by ${event.userId}`}
-                              {event.eventType === 'reward' && `Reward issued: ${event.pointsAwarded} points to ${event.userId}`}
-                              {event.eventType === 'fine' && `Fine issued: $${event.fineAmount} to ${event.userId}`}
-                            </div>
-                            <div className="text-xs text-gray-400">{new Date(event.timestamp).toLocaleString()}</div>
-                            <div className="flex mt-1">
-                              {event.eventType === 'disposal' && (
-                                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                  event.correct
-                                    ? 'bg-green-500/20 text-green-300'
-                                    : 'bg-red-500/20 text-red-300'
-                                }`}>
-                                  {event.correct ? 'Correct' : 'Incorrect'} Disposal
-                                </span>
-                              )}
-                              {event.eventType === 'reward' && (
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300">
-                                  +{event.pointsAwarded} Points
-                                </span>
-                              )}
-                              {event.eventType === 'fine' && (
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-300">
-                                  ${event.fineAmount} Fine
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <a 
-                              href={`https://etherscan.io/tx/${event.txHash}`}
-                              target="_blank"
-                              rel="noopener noreferrer" 
-                              className="text-xs text-blue-400 hover:underline"
-                            >
-                              View Transaction ↗
-                            </a>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+              <GarbageTimeline events={filteredEvents} />
             </GlassCard>
           </div>
         );
@@ -249,13 +313,69 @@ const GarbageManagement = () => {
             <h1 className="text-xl font-bold text-white">Garbage Management System</h1>
           </div>
           
-          <div>
-            <a href="/test/garbage-dashboard" className="text-gray-400 hover:text-white transition-colors flex items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M7.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
-              </svg>
-              Garbage Dashboard
-            </a>
+          <div className="flex items-center space-x-4">
+            {connectionError && (
+              <div className="text-red-400 text-sm">
+                {connectionError}
+              </div>
+            )}
+            
+            {account ? (
+              <div className="flex items-center">
+                <div className="bg-green-500/20 border border-green-500/30 text-green-300 rounded-full px-3 py-1 flex items-center mr-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                  <span className="text-sm font-medium">{formatAddress(account)}</span>
+                </div>
+                <button 
+                  onClick={disconnectWallet} 
+                  className="text-xs text-gray-400 hover:text-white"
+                >
+                  Disconnect
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={connectWallet} 
+                disabled={isConnecting}
+                className={`flex items-center px-3 py-1.5 bg-green-700 hover:bg-green-600 text-white rounded-md transition-colors ${isConnecting ? 'opacity-50' : ''}`}
+              >
+                {isConnecting ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z" stroke="currentColor" strokeWidth="2"/>
+                      <path d="M16 12C16 14.2091 14.2091 16 12 16C9.79086 16 8 14.2091 8 12C8 9.79086 9.79086 8 12 8C14.2091 8 16 9.79086 16 12Z" fill="currentColor"/>
+                    </svg>
+                    Connect Wallet
+                  </>
+                )}
+              </button>
+            )}
+            
+            <div className="flex space-x-3 items-center">
+              {/* Home button */}
+              <a href="/" className="text-gray-400 hover:text-white transition-colors flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                </svg>
+                Home
+              </a>
+              
+              {/* Garbage Dashboard link */}
+              <a href="/test/garbage-dashboard" className="text-gray-400 hover:text-white transition-colors flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M7.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
+                </svg>
+                Garbage Dashboard
+              </a>
+            </div>
           </div>
         </div>
       </header>
