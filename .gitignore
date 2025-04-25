@@ -1,6 +1,6 @@
 # Dependencies
 node_modules/
-frontend/node_modules/
+code/node_modules/
 /.pnp
 .pnp.js
 yarn.lock
@@ -12,15 +12,15 @@ package-lock.json
 
 # Next.js
 .next/
-frontend/.next/
+code/.next/
 /out/
-frontend/out/
+code/out/
 /build
-frontend/build/
+code/build/
 
 # Production
 /dist
-frontend/dist/
+code/dist/
 
 # Environment variables
 .env
