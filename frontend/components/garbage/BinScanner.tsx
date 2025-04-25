@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BAGS, USERS, blockchainAdapter } from '../../utils/garbageDummyData';
+import { blockchainAdapter } from '../../utils/garbageDummyData';
 import { 
   getUsers, 
   saveUsers, 
@@ -39,16 +39,18 @@ const BinScanner: React.FC<BinScannerProps> = ({
   
   // Load users and bags from localStorage
   useEffect(() => {
-    const persistedUsers = getUsers(USERS);
-    const persistedBags = getBags(BAGS);
+    // Get data from localStorage first
+    const persistedUsers = getUsers([]);
+    const persistedBags = getBags([]);
     
     setUsers(persistedUsers);
     setBags(persistedBags);
     
     // Get 5 random bags for quick select demo
     const getRandomBags = () => {
+      if (persistedBags.length === 0) return [];
       const shuffled = [...persistedBags].sort(() => 0.5 - Math.random());
-      return shuffled.slice(0, 5);
+      return shuffled.slice(0, Math.min(5, shuffled.length));
     };
     
     setRandomBags(getRandomBags());
@@ -151,7 +153,7 @@ const BinScanner: React.FC<BinScannerProps> = ({
       const events = getBlockchainEvents([]);
       
       // Create disposal event
-      const disposalEvent = {
+      const disposalEvent: BlockchainEvent = {
         id: `event-${events.length + 1}`,
         timestamp: result.timestamp,
         txHash: result.txHash,
@@ -187,7 +189,7 @@ const BinScanner: React.FC<BinScannerProps> = ({
         saveUsers(updatedUsers);
         
         // Create reward event
-        const rewardEvent = {
+        const rewardEvent: BlockchainEvent = {
           id: `event-${events.length + 2}`,
           timestamp: rewardResult.timestamp,
           txHash: rewardResult.txHash,
@@ -223,7 +225,7 @@ const BinScanner: React.FC<BinScannerProps> = ({
         saveUsers(updatedUsers);
         
         // Create fine event
-        const fineEvent = {
+        const fineEvent: BlockchainEvent = {
           id: `event-${events.length + 2}`,
           timestamp: fineResult.timestamp,
           txHash: fineResult.txHash,

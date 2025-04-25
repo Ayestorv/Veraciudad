@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { USERS, blockchainAdapter } from '../../utils/garbageDummyData';
+import { blockchainAdapter } from '../../utils/garbageDummyData';
 import { 
   getUsers, 
   saveUsers, 
@@ -16,6 +16,10 @@ const UserOnboarding: React.FC = () => {
   const [name, setName] = useState<string>('');
   const [address, setAddress] = useState<string>('');
   const [walletAddress, setWalletAddress] = useState<string>('');
+  const [phone, setPhone] = useState<string>('');
+  const [cedula, setCedula] = useState<string>('');
+  const [email, setEmail] = useState<string>('');
+  const [userType, setUserType] = useState<'citizen' | 'business'>('citizen');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [users, setUsers] = useState<User[]>([]);
   const [successMessage, setSuccessMessage] = useState<string>('');
@@ -24,9 +28,9 @@ const UserOnboarding: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [usersPerPage] = useState<number>(5);
   
-  // Load users from localStorage or initialize with dummy data on component mount
+  // Load users from localStorage on component mount
   useEffect(() => {
-    const persistedUsers = getUsers(USERS);
+    const persistedUsers = getUsers([]);
     setUsers(persistedUsers);
   }, []);
   
@@ -48,7 +52,7 @@ const UserOnboarding: React.FC = () => {
     setErrorMessage('');
     
     try {
-      if (!name || !address || !walletAddress) {
+      if (!name || !address || !walletAddress || !phone || !cedula || !email) {
         throw new Error('All fields are required');
       }
       
@@ -57,12 +61,31 @@ const UserOnboarding: React.FC = () => {
         name,
         address,
         walletAddress,
+        phone,
+        cedula,
+        email,
+        userType,
         pointsBalance: 0,
         finesBalance: 0
       });
       
+      // Ensure newUser conforms to User type
+      const typedUser: User = {
+        id: newUser.id,
+        name: newUser.name,
+        address: newUser.address,
+        walletAddress: newUser.walletAddress,
+        pointsBalance: newUser.pointsBalance || 0,
+        finesBalance: newUser.finesBalance || 0,
+        onboardedAt: newUser.onboardedAt,
+        userType: newUser.userType as 'citizen' | 'business',
+        phone: newUser.phone,
+        cedula: newUser.cedula,
+        email: newUser.email
+      };
+      
       // Update local state with the new user
-      const updatedUsers = [newUser, ...users];
+      const updatedUsers = [typedUser, ...users];
       setUsers(updatedUsers);
       
       // Persist to localStorage
@@ -70,7 +93,7 @@ const UserOnboarding: React.FC = () => {
       
       // Add user registration event to blockchain events
       const events = getBlockchainEvents([]);
-      const registrationEvent = {
+      const registrationEvent: BlockchainEvent = {
         id: `event-${events.length + 1}`,
         timestamp: newUser.onboardedAt,
         txHash: newUser.txHash,
@@ -84,6 +107,10 @@ const UserOnboarding: React.FC = () => {
       setName('');
       setAddress('');
       setWalletAddress('');
+      setPhone('');
+      setCedula('');
+      setEmail('');
+      setUserType('citizen');
       
       // Show success message
       setSuccessMessage(`User ${newUser.name} successfully registered with ID: ${newUser.id}`);
@@ -225,6 +252,50 @@ const UserOnboarding: React.FC = () => {
             />
           </div>
           
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="cedula" className="block text-sm font-medium text-gray-300 mb-1">
+                Cédula / ID Number
+              </label>
+              <input
+                type="text"
+                id="cedula"
+                value={cedula}
+                onChange={(e) => setCedula(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-md p-2 text-white"
+                placeholder="Enter ID number"
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-300 mb-1">
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                id="phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-md p-2 text-white"
+                placeholder="Enter phone number"
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">
+              Email Address
+            </label>
+            <input
+              type="email"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-md p-2 text-white"
+              placeholder="Enter email address"
+            />
+          </div>
+          
           <div>
             <label htmlFor="address" className="block text-sm font-medium text-gray-300 mb-1">
               Home Address
@@ -237,6 +308,34 @@ const UserOnboarding: React.FC = () => {
               className="w-full bg-slate-800 border border-slate-700 rounded-md p-2 text-white"
               placeholder="Enter home address"
             />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              User Type
+            </label>
+            <div className="flex space-x-4">
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  className="form-radio text-green-500"
+                  name="userType"
+                  checked={userType === 'citizen'}
+                  onChange={() => setUserType('citizen')}
+                />
+                <span className="ml-2">Citizen</span>
+              </label>
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  className="form-radio text-indigo-500"
+                  name="userType"
+                  checked={userType === 'business'}
+                  onChange={() => setUserType('business')}
+                />
+                <span className="ml-2">Business</span>
+              </label>
+            </div>
           </div>
           
           <div>
@@ -297,10 +396,13 @@ const UserOnboarding: React.FC = () => {
                   Name
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Address
+                  Type
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Wallet
+                  Contact
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  Cédula
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                   Points
@@ -322,11 +424,17 @@ const UserOnboarding: React.FC = () => {
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-white">
                     {user.name}
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
-                    {user.address.length > 25 ? `${user.address.substring(0, 25)}...` : user.address}
+                  <td className="px-4 py-3 whitespace-nowrap text-sm">
+                    <span className={`px-2 py-1 text-xs rounded-full ${user.userType === 'business' ? 'bg-indigo-900/50 text-indigo-300' : 'bg-green-900/50 text-green-300'}`}>
+                      {user.userType || 'Citizen'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-300">
+                    <div>{user.phone || 'N/A'}</div>
+                    <div className="text-xs text-gray-400">{user.email || 'N/A'}</div>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
-                    {`${user.walletAddress.substring(0, 6)}...${user.walletAddress.substring(user.walletAddress.length - 4)}`}
+                    {user.cedula || 'N/A'}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-green-400">
                     {user.pointsBalance} pts

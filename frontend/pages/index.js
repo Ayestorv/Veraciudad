@@ -5,8 +5,38 @@ export default function Home() {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <GlassCard className="max-w-2xl w-full text-center">
+    <div className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden">
+      {/* Static background with city skyline */}
+      <div className="fixed top-0 left-0 w-full h-full -z-10 overflow-hidden">
+        {/* Gradient background */}
+        <div 
+          className="absolute inset-0 bg-gradient-to-b from-[#0a0a2a] to-[#1a1a3a]"
+          style={{ 
+            backgroundImage: 'radial-gradient(circle at 30% 30%, rgba(120, 120, 255, 0.2) 0%, rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 70% 60%, rgba(180, 120, 255, 0.2) 0%, rgba(0, 0, 0, 0) 40%)'
+          }}
+        ></div>
+        
+        {/* City skyline silhouette */}
+        <div 
+          className="absolute bottom-0 left-0 w-full h-1/3 bg-contain bg-bottom bg-no-repeat" 
+          style={{
+            backgroundImage: 'url("/new-york-city-skyline.png")',
+            maskImage: 'url("/new-york-city-skyline.png")',
+            maskSize: 'contain',
+            maskPosition: 'bottom',
+            maskRepeat: 'no-repeat',
+            WebkitMaskImage: 'url("/new-york-city-skyline.png")',
+            WebkitMaskSize: 'contain',
+            WebkitMaskPosition: 'bottom',
+            WebkitMaskRepeat: 'no-repeat',
+          }}
+        >
+          {/* City lights overlay */}
+          <div className="absolute inset-0 opacity-40 bg-gradient-to-t from-blue-400/20 to-transparent"></div>
+        </div>
+      </div>
+      
+      <GlassCard className="max-w-2xl w-full text-center relative z-10">
         <h1 className="text-4xl font-bold text-white mb-6">Panama Smart City</h1>
         <p className="text-gray-200 mb-8">
           A smart city platform for Panama City integrated with blockchain technology and IoT sensors for realtime data collection and analysis

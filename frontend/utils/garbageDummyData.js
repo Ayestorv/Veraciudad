@@ -132,6 +132,7 @@ export const generateUsers = (count = 100) => {
     const streetName = streetNames[Math.floor(Math.random() * streetNames.length)];
     const houseNumber = Math.floor(Math.random() * 200) + 1;
     const walletAddress = `0x${generateRandomHex(40)}`;
+    const userType = Math.random() > 0.8 ? 'business' : 'citizen'; // 20% business, 80% citizen
     
     return {
       id,
@@ -140,7 +141,8 @@ export const generateUsers = (count = 100) => {
       walletAddress,
       pointsBalance: 0, // Initialize points balance
       finesBalance: 0,  // Initialize fines balance
-      onboardedAt: Date.now() - (Math.random() * 90 * 24 * 60 * 60 * 1000) // Random date in last 90 days
+      onboardedAt: Date.now() - (Math.random() * 90 * 24 * 60 * 60 * 1000), // Random date in last 90 days
+      userType // Add user type
     };
   });
 };
@@ -455,6 +457,7 @@ export const blockchainAdapter = {
       ...userData,
       id: `user-${(USERS.length + 1).toString().padStart(3, '0')}`,
       onboardedAt: Date.now(),
+      userType: userData.userType || 'citizen', // Default to citizen if not provided
       txHash: `0x${generateRandomHex(64)}`
     };
   },

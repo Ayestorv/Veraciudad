@@ -9,6 +9,7 @@ export type User = {
   pointsBalance: number;
   finesBalance: number;
   onboardedAt: number;
+  userType: 'citizen' | 'business';
 };
 
 export type Bag = {
